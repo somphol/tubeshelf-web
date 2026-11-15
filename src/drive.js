@@ -1,5 +1,6 @@
 // Google Drive transport for the editable app. Tokens stay in memory; settings
 // (client ID, API key, folder) are public values stored locally. No backend.
+import { DRIVE_DEFAULTS } from "./drive-config.js";
 
 export const DRIVE_SCOPE_FILE = "https://www.googleapis.com/auth/drive.file";
 export const DRIVE_SCOPE_FULL = "https://www.googleapis.com/auth/drive";
@@ -20,15 +21,16 @@ export class DriveError extends Error {
 export function loadDriveSettings() {
   try {
     const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+    const mode = raw?.mode || DRIVE_DEFAULTS.mode;
     return {
-      clientId: raw?.clientId || "",
-      apiKey: raw?.apiKey || "",
-      mode: raw?.mode === "full" ? "full" : "picker",
-      folderName: raw?.folderName || "TubeShelf Backups",
-      autoSave: raw?.autoSave !== false,
+      clientId: raw?.clientId || DRIVE_DEFAULTS.clientId,
+      apiKey: raw?.apiKey || DRIVE_DEFAULTS.apiKey,
+      mode: mode === "full" ? "full" : "picker",
+      folderName: raw?.folderName || DRIVE_DEFAULTS.folderName,
+      autoSave: (raw?.autoSave ?? DRIVE_DEFAULTS.autoSave) !== false,
     };
   } catch {
-    return { clientId: "", apiKey: "", mode: "picker", folderName: "TubeShelf Backups", autoSave: true };
+    return { ...DRIVE_DEFAULTS };
   }
 }
 

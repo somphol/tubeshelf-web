@@ -49,8 +49,10 @@ start editing.
   newest 24 web autosaves. The intended loop reuses the Mac app's
   `My Drive/TubeShelf Backups` folder through **Google Drive for Desktop**, so web
   edits appear locally on the Mac with no download or upload. Use Automatic mode
-  for Mac-created files; Pick a folder may not list them. Needs a one-time OAuth
-  client; see [DRIVE.md](DRIVE.md).
+  for Mac-created files; Pick a folder may not list them. End users only see
+  **Sign in with Google**; the app owner fills one public client ID in
+  [`src/drive-config.js`](src/drive-config.js) once. See [DRIVE.md](DRIVE.md) for
+  the owner step and the Google testing/verification limits.
 - **Local snapshots** when Drive is unavailable: hourly, change-only, newest 24,
   with Open / Download / Delete and a Snapshot now action.
 - Drive-first landing when configured, with **From this computer…** always beside

@@ -4,8 +4,14 @@ Google Drive is optional. It lets the web editor **open the newest backup from
 Drive** and **save edits back to the same folder**, so Drive for Desktop delivers
 them to the Mac. Local files and local snapshots work without it.
 
-The app ships no credentials. Each user creates one OAuth client in their own
-Google Cloud project, once. No server is involved.
+The app ships no credentials. **Recommended for ease:** the app owner creates one
+OAuth client and puts its public client ID in `src/drive-config.js`. End users then
+only see **Sign in with Google** — no fields, no Google Cloud setup. No server is
+involved.
+
+If the app has no default client (or a user wants their own project), the
+Backups panel exposes an **Advanced** section with the client ID/API key fields.
+
 
 ## Two access modes
 
@@ -21,7 +27,24 @@ reliable mode** because the Mac created the files. If Drive refuses new files in
 picked folder, switch to Automatic. Reconnect after switching modes: the scope
 changes.
 
-## One-time setup
+## One-click for end users (recommended)
+
+This is the setup to use if other people will use the page:
+
+1. As the owner, do the one-time setup below once.
+2. Put the public **Client ID** in `src/drive-config.js` (`clientId`). Keep
+   `mode: "full"` for the Mac folder; an API key is only needed for Picker mode.
+3. Commit and deploy. Every user now sees one **Sign in with Google** button.
+4. In Google Cloud, the OAuth consent screen can stay in **Testing**. Add each
+   person as a **test user** (up to 100); they click through an “unverified app”
+   warning once. No Google review is needed for this private use.
+5. For public use beyond those test users, Google requires verification for the
+   Drive scopes. A static client cannot bypass that; plan for the review or keep
+   the app private/testing. This is the only unavoidable platform limit.
+
+The client ID is public. There is no client secret in a browser token flow.
+
+## One-time setup (owner, or Advanced)
 
 1. Open <https://console.cloud.google.com/> and create or select a project.
 2. Enable the **Google Drive API**:

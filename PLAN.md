@@ -20,6 +20,11 @@ No accounts required for the core loop.
 
 ### Permission model
 
+End-user UX: one **Sign in with Google** button. The owner configures one public
+client ID in `src/drive-config.js`; fields live under **Advanced**. Testing mode
+with test users avoids Google verification for a private app; public use beyond
+test users needs Google's Drive-scope review.
+
 - Default: `drive.file` + Google Picker. The user picks the `TubeShelf Backups`
   folder or the latest backup once per session; the file/folder ID is remembered.
 - Opt-in: full `drive` scope. The app lists `My Drive/TubeShelf Backups`, opens the

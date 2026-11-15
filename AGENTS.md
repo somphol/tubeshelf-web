@@ -65,6 +65,9 @@ reason; the value is that the whole app is auditable in one sitting.
 - `src/drive.js` — Google OAuth/Picker helpers and Drive REST transport. Pure
   helpers (names, retention, multipart) are unit-tested; the OAuth round-trip is
   not.
+- `src/drive-config.js` — public default OAuth client ID/API key and the default
+  mode; empty in the repo. The owner fills it once so end users only see
+  “Sign in with Google”. Never put a client secret here; token flow has none.
 - `src/tagger.js` — deterministic port of `HeuristicTagger`, `GuestNameExtractor`
   and `FormatTagger`. No network.
 - `src/taxonomy.js` / `.json` — generated from the Mac's `TagTaxonomy.swift`.
@@ -78,6 +81,13 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
 
 ## Decisions and constraints
 
+- **One client for all users.** End users must not see OAuth fields. The owner
+  puts the public client ID in `src/drive-config.js`; `HAS_DRIVE_DEFAULTS` then
+  hides the fields under **Advanced** and the Backups panel offers one
+  “Sign in with Google”. OAuth can stay in Google's Testing mode with up to 100
+  test users; public use beyond that requires Google verification for Drive
+  scopes and cannot be bypassed by a static app. The API key is only for Picker.
+  Never commit a secret — there is none.
 - **Drive is optional and never required.** When configured, the landing starts
   with **Open from Google Drive**; **From this computer…** is always beside it. A
   local copy/snapshot path works with no Google account. The app ships no OAuth

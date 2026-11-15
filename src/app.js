@@ -44,6 +44,7 @@ import {
   TAXONOMY_CATEGORY_NAMES,
 } from "./tagger.js";
 import { demoBackup } from "./demo.js";
+import { HAS_DRIVE_DEFAULTS } from "./drive-config.js";
 import {
   Drive,
   DriveError,
@@ -1271,7 +1272,7 @@ function updateDriveButton() {
   } else if (state.drive.status === "error") {
     button.textContent = "Backups · !";
   } else if (configured()) {
-    button.textContent = "Backups · connect";
+    button.textContent = "Backups · sign in";
   } else {
     button.textContent = "Backups";
   }
@@ -1692,6 +1693,12 @@ function renderDriveBody() {
     ));
   }
 
+  if (!isConnected) {
+    body.append(el("div", { class: "drive-hint" },
+      "One click. Google asks once to let TubeShelf use the TubeShelf Backups folder. The token stays in memory."
+    ));
+  }
+
   const grid = el("div", { class: "drive-grid" });
   grid.append(
     el("div", { class: "field wide" },
@@ -1718,23 +1725,22 @@ function renderDriveBody() {
       "Hourly Drive autosave when changes exist (timestamped; newest 24 kept)"
     )
   );
-  body.append(grid);
-  body.append(el("div", { class: "drive-hint" },
+  const originHint = el("div", { class: "drive-hint" },
     `Authorized origin: ${location.origin} `,
     el("button", {
       class: "link",
       onclick: () => navigator.clipboard?.writeText(location.origin),
     }, "Copy"),
     ` · Automatic is the reliable mode for backups the Mac created; it asks for full Drive access so it can find and create “${settings.folderName}”. Picker mode touches only what you choose. Drive for Desktop carries the same folder to the Mac.`
-  ));
+  );
+  const settingsButton = el("button", { class: "button", id: "drive-save-settings", onclick: () => persistDriveFields() }, "Save settings");
   body.append(el("div", { class: "drive-actions" },
-    el("button", { class: "button", id: "drive-save-settings", onclick: () => persistDriveFields() }, "Save settings"),
     el("button", {
       class: "button primary",
       id: "drive-connect",
       disabled: state.drive.busy || !settings.clientId,
       onclick: () => connectDrive({ intent: state.drive.intent }),
-    }, isConnected ? "Reconnect" : "Connect Google Drive"),
+    }, isConnected ? "Reconnect" : "Sign in with Google"),
     isConnected ? el("button", {
       class: "button",
       onclick: async () => {
@@ -1783,6 +1789,20 @@ function renderDriveBody() {
   const snapshots = el("div", { class: "drive-list" });
   body.append(snapshots);
   renderLocalSnapshots(snapshots);
+
+  body.append(el("details", {
+    class: "drive-advanced",
+    open: !HAS_DRIVE_DEFAULTS,
+  },
+    el("summary", {
+      text: HAS_DRIVE_DEFAULTS
+        ? "Advanced: use your own Google project"
+        : "Google project settings",
+    }),
+    grid,
+    originHint,
+    settingsButton
+  ));
 
   body.append(el("div", { class: "drive-hint" },
     "Retention: local snapshots keep the newest 24. Drive autosaves keep the newest 24 per app; manual saves are never deleted. Hourly writes happen only when the shelf changed. ",
