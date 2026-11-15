@@ -6,9 +6,16 @@ The app has no build step and no npm dependency. Unit tests cover the data layer
 node --test tests/
 ```
 
-For browser checks, serve the folder and drive a real Chrome with `puppeteer-core`
-(`node /tmp/webcheck/...` works on this machine; Chrome headless clamps
-`--window-size` to 500 CSS px, so use `page.setViewport` for narrow checks).
+For browser checks, serve the folder and drive a real Chrome with `puppeteer-core`.
+Install it in a disposable scratch folder so the app itself stays dependency-free:
+
+```bash
+mkdir -p /tmp/rw-check && cd /tmp/rw-check
+npm init -y && npm i puppeteer-core
+```
+
+Chrome headless clamps `--window-size` to 500 CSS px, so use `page.setViewport`
+for narrow checks. Write the scratch script there; it is not part of the repo.
 
 ```bash
 python3 -m http.server 8770
