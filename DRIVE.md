@@ -107,3 +107,28 @@ The Drive transport is covered by unit tests with a fake `fetch`. A live OAuth
 round-trip has **not** been run in this repository because it needs a real Google
 Cloud client and account. Verify the setup with your own project before relying on
 it for daily work.
+
+## Recommended Mac ↔ web loop (reuse your Drive folder)
+
+This is the setup the Mac app already supports:
+
+1. On the Mac, install **Google Drive for Desktop** and sign in. Let `My Drive`
+   appear under `~/Library/CloudStorage/`.
+2. In the Mac app, use **Back up to Drive** (Settings, or ⌥⇧⌘S). It writes
+   `My Drive/TubeShelf Backups/TubeShelf ….json`.
+3. In this web app, choose **Automatic (full Drive)** and keep the folder name
+   **TubeShelf Backups**. Connect.
+4. Morning: back up from the Mac, then **Open from Google Drive** here.
+5. Work: edit; hourly autosave writes a new timestamped file into the same folder.
+6. Evening: **Save now**, then restore that file on the Mac. Drive for Desktop
+   has already synced it into the local `My Drive` folder, so no download or
+   upload is needed.
+
+Why Automatic: `drive.file` (Pick a folder) only guarantees files this app opened
+or created; it may not list backups the Mac wrote. Automatic uses full Drive scope
+to find the shared folder. The app code only touches `TubeShelf Backups` and
+keeps the newest 24 web autosaves; manual backups and Mac autosaves are never
+deleted.
+
+Keep one writer at a time. Every save is a new timestamped file, so a wrong
+restore is recoverable, and the Mac still copies the replaced shelf aside.

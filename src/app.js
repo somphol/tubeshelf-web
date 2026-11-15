@@ -1599,11 +1599,12 @@ function renderDriveBody() {
       "Google Drive is optional. It lets this page open the newest backup and save edits back to the same folder, so the Mac sees them through Drive for Desktop. Local backups always remain available."
     ));
     body.append(el("ol", { class: "drive-hint", style: "margin:0;padding-left:18px" },
+      el("li", {}, "On the Mac, install Google Drive for Desktop and sign in; the Mac app's Back up to Drive writes into My Drive/TubeShelf Backups."),
       el("li", {}, "Create a Google Cloud project and enable the Drive API."),
       el("li", {}, "Set the OAuth consent screen to External, add yourself as a test user, and add the scopes drive.file (and drive for Automatic)."),
       el("li", {}, `Create a Web OAuth client with this origin: ${location.origin}`),
       el("li", {}, "Create an API key for the Picker (Picker mode only)."),
-      el("li", {}, "Paste both values below and press Connect.")
+      el("li", {}, "Paste both values below, choose Automatic to share the Mac's folder, and press Connect.")
     ));
     body.append(el("div", { class: "drive-actions" },
       el("a", { class: "button", href: "https://github.com/somphol/tubeshelf-web-rw/blob/main/DRIVE.md", target: "_blank", rel: "noreferrer noopener", text: "Open the setup guide" }),
@@ -1644,7 +1645,7 @@ function renderDriveBody() {
       class: "link",
       onclick: () => navigator.clipboard?.writeText(location.origin),
     }, "Copy"),
-    ` · Automatic is the reliable mode for backups the Mac created; it asks for full Drive access so it can find and create “${settings.folderName}”. Picker mode touches only what you choose.`
+    ` · Automatic is the reliable mode for backups the Mac created; it asks for full Drive access so it can find and create “${settings.folderName}”. Picker mode touches only what you choose. Drive for Desktop carries the same folder to the Mac.`
   ));
   body.append(el("div", { class: "drive-actions" },
     el("button", { class: "button", id: "drive-save-settings", onclick: () => persistDriveFields() }, "Save settings"),

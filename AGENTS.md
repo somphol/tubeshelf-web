@@ -8,8 +8,10 @@ code next.
 
 A static, zero-build editor for TubeShelf backups. It loads the Mac app's JSON,
 edits videos and categories in the browser, and exports a new timestamped backup.
-It is **not** a server, sync client or YouTube client. Core editing needs no
-account; Google Drive is the planned optional sync (not implemented yet).
+It is **not** a server or YouTube client. Core editing needs no account; Google
+Drive is optional and implemented (OAuth client required). The shared folder is
+intended to be the same `My Drive/TubeShelf Backups` folder that Google Drive for
+Desktop syncs to the Mac.
 
 ## Current state (phase 1)
 
@@ -71,6 +73,13 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   with **Open from Google Drive**; **From this computer…** is always beside it. A
   local copy/snapshot path works with no Google account. The app ships no OAuth
   credentials; each user creates a client. Setup lives in [DRIVE.md](DRIVE.md).
+- **Reuse the Mac's Drive folder.** The intended loop is Google Drive for Desktop
+  on the Mac, the Mac app's *Back up to Drive* writing
+  `My Drive/TubeShelf Backups`, and this app in Automatic mode using the same
+  folder. That makes web edits appear in the Mac's local Drive folder with no
+  download or upload. Picker/`drive.file` may not list Mac-created files, so
+  Automatic is the reliable cross-device mode. Keep the folder name identical and
+  one writer at a time; timestamps are the history.
 - **Two Drive modes, explicit scope.** Picker + `drive.file` is least access;
   Automatic uses full `drive` to find/create `TubeShelf Backups`. The token is
   memory-only with a ~1h lifetime; no refresh token or backend. Changing mode or

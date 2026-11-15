@@ -42,7 +42,11 @@ start editing.
   category, search and page. A banner lets you forget it.
 - **Google Drive (optional):** open the newest backup from Drive, save a new
   timestamped backup, hourly autosave when changes exist, and retention of the
-  newest 24 web autosaves. Needs a one-time OAuth client; see [DRIVE.md](DRIVE.md).
+  newest 24 web autosaves. The intended loop reuses the Mac app's
+  `My Drive/TubeShelf Backups` folder through **Google Drive for Desktop**, so web
+  edits appear locally on the Mac with no download or upload. Use Automatic mode
+  for Mac-created files; Pick a folder may not list them. Needs a one-time OAuth
+  client; see [DRIVE.md](DRIVE.md).
 - **Local snapshots** when Drive is unavailable: hourly, change-only, newest 24,
   with Open / Download / Delete and a Snapshot now action.
 - Drive-first landing when configured, with **From this computer…** always beside
