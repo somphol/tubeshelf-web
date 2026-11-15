@@ -135,6 +135,7 @@ function scheduleDraft() {
       text: currentBackup(state.store),
       fileName: state.store.fileName,
       savedAt: state.draftAt.toISOString(),
+      dirty: state.store.dirty,
     });
     setDraftStatus();
   }, 1200);
@@ -152,31 +153,37 @@ function setDraftStatus() {
   meta.querySelectorAll(".draft-meta").forEach((node) => node.remove());
   if (!state.draftAt) return;
   const time = state.draftAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  meta.append(el("span", { class: "draft-meta", text: ` · draft ${time}` }));
+  meta.append(el("span", { class: "draft-meta", text: ` · local copy ${time}` }));
 }
 
 /* ---------- loading ---------- */
-function loadText(text, name, { draft = false } = {}) {
+function loadText(text, name, { draft = false, dirty = false, restoreView = false } = {}) {
   try {
     const parsed = parseBackup(text);
     state.store = createStore(parsed, name);
     state.draftAt = null;
-    if (draft) {
+    if (draft && dirty) {
       state.store.dirty = true;
       state.store.revision = 1;
     }
-    state.filter = { kind: "all" };
-    state.query = "";
-    state.page = 0;
-    state.sidebarQuery = "";
+    if (!restoreView) {
+      state.filter = { kind: "all" };
+      state.query = "";
+      state.scope = "everything";
+      state.page = 0;
+      state.sidebarQuery = "";
+      clearSavedView();
+    }
     $("#landing").hidden = true;
     $("#main").hidden = false;
     $("#add").disabled = false;
     $("#export").disabled = false;
     $("#draft-banner").hidden = true;
+    if (restoreView) applySavedView();
     renderAll();
+    scheduleDraft();
     toast(
-      `${state.store.videos.length} videos · ${state.store.playlists.length} course${state.store.playlists.length === 1 ? "" : "s"}${draft ? " · restored draft" : ""}`
+      `${state.store.videos.length} videos · ${state.store.playlists.length} course${state.store.playlists.length === 1 ? "" : "s"}${draft ? " · restored last session" : ""}`
     );
   } catch (error) {
     toast(error.message || "That file could not be read.");
@@ -203,6 +210,7 @@ function renderAll() {
   renderSidebar();
   renderContent();
   $("#undo").disabled = !canUndo(state.store);
+  saveView();
 }
 
 function render() {
@@ -465,17 +473,9 @@ function renderContent() {
 
 function videoCard(video) {
   const thumb = el("div", { class: "thumb" });
-  const img = el("img", { alt: "", loading: "lazy" });
-  const candidates = thumbnailCandidates(video.youtubeID);
-  let index = 0;
-  img.src = candidates[0];
-  img.addEventListener("error", () => {
-    index += 1;
-    if (index < candidates.length) img.src = candidates[index];
-    else {
-      img.remove();
-      thumb.prepend(el("div", { class: "placeholder", text: "No artwork" }));
-    }
+  const img = coverImage(video.youtubeID, () => {
+    img.remove();
+    thumb.prepend(el("div", { class: "placeholder", text: "No artwork" }));
   });
   thumb.append(img);
   if (video.durationSeconds) {
@@ -719,17 +719,30 @@ function openEditor(youtubeID) {
   $("#editor-modal").hidden = false;
 }
 
-function thumbnail(videoID) {
+/**
+ * YouTube answers a missing maxresdefault with 404 + a 120×90 grey body, which
+ * Chrome decodes without firing `error`. Treat that size as a miss and try the
+ * next quality. This is the same rule as the Mac app.
+ */
+function coverImage(videoID, onGiveUp) {
   const img = el("img", { alt: "", loading: "lazy" });
   const candidates = thumbnailCandidates(videoID);
   let index = 0;
-  img.src = candidates[0];
-  img.addEventListener("error", () => {
+  const advance = () => {
     index += 1;
     if (index < candidates.length) img.src = candidates[index];
-    else img.remove();
+    else onGiveUp?.();
+  };
+  img.addEventListener("error", advance);
+  img.addEventListener("load", () => {
+    if (img.naturalWidth <= 120) advance();
   });
+  img.src = candidates[0];
   return img;
+}
+
+function thumbnail(videoID) {
+  return coverImage(videoID, () => {});
 }
 
 /* ---------- add ---------- */
@@ -1031,9 +1044,8 @@ function exportBackup() {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
   state.store.dirty = false;
-  state.draftAt = null;
-  clearDraft();
   renderMeta();
+  scheduleDraft();
   $("#undo").disabled = !canUndo(state.store);
   toast("Backup exported. Reload it on the Mac.");
 }
@@ -1159,19 +1171,71 @@ window.addEventListener("drop", (event) => {
   if (file) loadFile(file);
 });
 
+/* ---------- saved view ---------- */
+const VIEW_KEY = "tubeshelf-rw-view";
+
+function saveView() {
+  if (!state.store) return;
+  try {
+    localStorage.setItem(VIEW_KEY, JSON.stringify({
+      filter: state.filter,
+      query: state.query,
+      scope: state.scope,
+      page: state.page,
+      sidebarQuery: state.sidebarQuery,
+    }));
+  } catch {}
+}
+
+function applySavedView() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");
+    if (!saved) return;
+    if (saved.filter && typeof saved.filter.kind === "string") state.filter = saved.filter;
+    if (typeof saved.query === "string") state.query = saved.query;
+    if (saved.scope === "titles" || saved.scope === "everything") state.scope = saved.scope;
+    if (Number.isFinite(saved.page)) state.page = saved.page;
+    if (typeof saved.sidebarQuery === "string") state.sidebarQuery = saved.sidebarQuery;
+  } catch {}
+}
+
+function clearSavedView() {
+  try { localStorage.removeItem(VIEW_KEY); } catch {}
+}
+
+function showLanding() {
+  state.store = null;
+  state.filter = { kind: "all" };
+  state.query = "";
+  state.page = 0;
+  state.sidebarQuery = "";
+  $("#main").hidden = true;
+  $("#landing").hidden = false;
+  $("#file-meta").replaceChildren();
+  $("#add").disabled = true;
+  $("#export").disabled = true;
+  $("#undo").disabled = true;
+  $("#draft-banner").hidden = true;
+}
+
 /* ---------- boot / draft ---------- */
 (async () => {
   const draft = await idbGet("draft");
-  if (draft?.text) {
-    const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : "earlier";
-    $("#draft-meta").textContent = `${draft.fileName || "shelf"} · ${when}`;
-    $("#draft-banner").hidden = false;
-    $("#draft-restore").onclick = () => {
-      loadText(draft.text, draft.fileName || "draft.json", { draft: true });
-    };
-    $("#draft-discard").onclick = async () => {
-      await clearDraft();
-      toast("Draft discarded");
-    };
-  }
+  if (!draft?.text) return;
+
+  loadText(draft.text, draft.fileName || "shelf.json", { draft: true, dirty: Boolean(draft.dirty), restoreView: true });
+  const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : "earlier";
+  $("#draft-meta").textContent = `Restored last session · ${draft.fileName || "shelf"} · ${when}`;
+  $("#draft-banner").hidden = false;
+  $("#draft-restore").textContent = "Keep";
+  $("#draft-restore").onclick = () => {
+    $("#draft-banner").hidden = true;
+  };
+  $("#draft-discard").textContent = "Forget";
+  $("#draft-discard").onclick = async () => {
+    await clearDraft();
+    clearSavedView();
+    showLanding();
+    toast("Local copy forgotten");
+  };
 })();

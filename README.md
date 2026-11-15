@@ -37,7 +37,8 @@ start editing.
   suggestions follow. Duplicate IDs are refused.
 - Category actions: pin/unpin, rename, merge into another category, delete.
 - Pin channels alongside categories.
-- Local draft in IndexedDB with a restore banner, cleared on export.
+- Local copy in IndexedDB: a reload reopens the last shelf and keeps your
+  category, search and page. A banner lets you forget it.
 - **⌘S** export, **⌘N** add, **⌘F** search, **⌘Z** undo, **Esc** close.
 - Mobile-width layout for quick edits.
 
@@ -46,6 +47,7 @@ start editing.
 - Google Drive connect/Picker and hourly autosave (designed in [PLAN.md](PLAN.md)).
 - Course/playlist editing; courses are counted but not shown or tickable here.
 - In-place file saving; export downloads a new backup.
+- Multiple shelves cached at once: the local copy is a single slot.
 - Description and duration for new videos: the watch page is CORS-blocked, so only
   oEmbed title/channel are fetched. Duration stays empty until the Mac sees it.
 - AI tagging. The deterministic Mac tagger is ported to JavaScript and runs

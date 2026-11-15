@@ -28,15 +28,19 @@ python3 -m http.server 8770
 2. Open the first card, set the note to `Edited on the web`, type `Test Tag` and
    press Return, press **Save**. Expect `· Edited`, an enabled Undo and the tag
    on the card.
-3. Wait ~1.5 s, open a **second tab** to the same URL. Expect the draft banner.
-   (A reload in the same tab triggers the beforeunload prompt; use a second tab
-   or accept the dialog.) Press **Restore draft**; the note and tag return.
+3. Wait ~1.5 s, open a **second tab** to the same URL. The shelf restores
+   automatically (landing hidden, 7 cards) with a **Restored last session**
+   banner. The filter/search/page should match the first tab. Press **Keep**.
+   (A reload in a dirty tab triggers the beforeunload prompt; accept it.)
 4. **Add video**, paste `https://www.youtube.com/watch?v=kJQP7kiw5Fk`, press
    **Fetch details**. Expect title/channel from oEmbed within ~3 s; add it.
    Expect 8 cards.
 5. Press **Export backup**. Expect `TubeShelf YYYY-MM-DD HH.MM.SS.json` in the
    download folder with 8 videos, the edited note/tag and the new video.
 6. Delete the demo card, press Undo; the card returns.
+7. Thumbnail fallback: load a one-video backup for `nwjAHQERL08`. Its maxres is a
+   404 body; the card must end on `hqdefault.jpg` with `naturalWidth` 480, not a
+   grey 120×90 tile. `dQw4w9WgXcQ` must stay on `maxresdefault.jpg` (1280).
 
 ## Notes from the first pass
 

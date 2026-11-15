@@ -51,7 +51,7 @@ reason; the value is that the whole app is auditable in one sitting.
 - `src/taxonomy.js` / `.json` — generated from the Mac's `TagTaxonomy.swift`.
   Never edit by hand; run `scripts/sync-taxonomy.py`.
 - `src/shelf.js` — filters, search, paging. Pure, copied from the read-only app.
-- `src/app.js` — DOM rendering, modals, draft, export, keyboard.
+- `src/app.js` — DOM rendering, modals, session copy, export, keyboard.
 - `src/demo.js` — seven public videos; the only content shipped.
 - `index.html`, `styles.css` — shell and layout. System fonts only.
 
@@ -84,9 +84,17 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
 - **Categories rewrite everywhere.** Rename/merge/delete update videos, courses
   and pins. Merging never deletes a category with no target; the UI requires a
   target.
-- **Draft is explicit.** A single IndexedDB record under `draft` holds the last
-  in-progress backup. It is written 1.2 s after a change, never auto-restored, and
-  cleared on export. Known gap: it is not keyed per file.
+- **The local copy is automatic.** A single IndexedDB record under `draft` holds
+  the last shelf, written 1.2 s after load or change. On boot it is restored
+  automatically, with a banner offering **Keep** or **Forget**. The record stores
+  `dirty` so an exported shelf reloads without the Edited marker or beforeunload
+  prompt. Export keeps the record; only Forget clears it. View state (filter,
+  query, scope, page, sidebar query) lives in `localStorage` under
+  `tubeshelf-rw-view` and is restored with the shelf. Known gap: one slot, not
+  keyed per file.
+- **Thumbnails use the 120 px rule.** YouTube can answer a missing maxres with
+  HTTP 404 plus a decodable 120×90 grey image, so `coverImage` advances on
+  `naturalWidth <= 120`, then on `error`. Same rule as the Mac app.
 - **Security.** All file-derived strings render with `textContent`; no
   `innerHTML`. CSP allows only self scripts, inline styles (progress widths),
   `i.ytimg.com` images and YouTube oEmbed. Do not add remote fonts or analytics.
@@ -116,7 +124,8 @@ Read [PLAN.md](PLAN.md) for the full design. Summary:
 - Courses are counted but not shown or editable; a course-only category opens an
   empty video grid.
 - No bulk selection, no redo button, no file picker “save”.
-- The draft is one global record; loading a second shelf replaces it.
+- The local copy is one global slot; loading a second shelf replaces it after the
+  1.2 s debounce.
 - Category UI uses `prompt`/`confirm`; acceptable now, replace with a dialog for
   polish.
 - Tag suggestions cannot see YouTube descriptions, so description-only guests
