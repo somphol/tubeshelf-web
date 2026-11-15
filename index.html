@@ -51,6 +51,7 @@
         It is parsed in this browser; edits stay here until you export a backup.
       </p>
       <div class="landing-actions">
+        <button class="button primary" id="folder-start" hidden>Set up Google Drive folder</button>
         <button class="button primary" id="drive-start" hidden>Open from Google Drive</button>
         <button class="button primary" id="choose">Choose a backup…</button>
         <button class="link" id="demo">Open the demo shelf</button>
@@ -61,11 +62,11 @@
       </p>
       <div id="drive-hint" class="drive-hint-card">
         <div>
-          <strong>Google Drive is supported</strong>
-          <p>Open the newest backup from Drive and save edits back to <code>TubeShelf Backups</code> — the same folder the Mac app already syncs with Google Drive for Desktop. Optional; local files always work.</p>
+          <strong>Use the Google Drive folder you already sync</strong>
+          <p>No client ID, no Google Cloud project. Install Google Drive for Desktop, choose <code>My Drive/TubeShelf Backups</code> once, and this page reads and writes that folder directly. Local files always work.</p>
         </div>
         <div class="drive-actions">
-          <button class="button primary" id="drive-hint-setup">Set it up</button>
+          <button class="button primary" id="drive-hint-setup">Choose folder</button>
           <button class="link" id="drive-hint-off">Not now</button>
         </div>
       </div>
@@ -99,7 +100,7 @@
   <div id="drive-modal" class="modal" hidden>
     <div class="modal-panel drive-panel" role="dialog" aria-modal="true" aria-label="Google Drive">
       <div class="modal-head">
-        <h2>Google Drive</h2>
+        <h2>Backups &amp; Google Drive</h2>
         <button class="icon-button" id="drive-close" title="Close (esc)">✕</button>
       </div>
       <div id="drive-body" class="modal-body"></div>

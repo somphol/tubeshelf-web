@@ -15,6 +15,16 @@ npm run serve        # in another terminal
 npm run test:e2e
 ```
 
+For the no-OAuth Google Drive folder (fake File System Access handle):
+
+```bash
+npm run test:e2e:folder
+```
+
+It chooses a folder, saves a timestamped backup, opens the latest, writes the
+hourly `Local Sync` autosave and checks the shelf is marked clean. No OAuth or
+Google Cloud project.
+
 For the 3D view:
 
 ```bash

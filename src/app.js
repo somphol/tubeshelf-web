@@ -46,6 +46,19 @@ import {
 } from "./tagger.js";
 import { demoBackup } from "./demo.js";
 import { HAS_DRIVE_DEFAULTS } from "./drive-config.js";
+import {
+  folderSupported,
+  pickFolder,
+  folderPermission,
+  requestFolderPermission,
+  listBackups,
+  readText,
+  writeText,
+  deleteFile,
+  folderAutosaveName,
+  folderRetentionVictims,
+  latestBackup,
+} from "./folder.js";
 import { buildGraph } from "./graph.js";
 import { mountGraph } from "./graph-view.js";
 import {
@@ -115,6 +128,21 @@ const state = {
   graphSelected: null,
   graphController: null,
   graphToken: 0,
+  folder: {
+    supported: folderSupported(),
+    handle: null,
+    name: "",
+    files: [],
+    status: "off",
+    message: "",
+    lastSavedAt: (() => {
+      try {
+        return JSON.parse(localStorage.getItem("tubeshelf-rw-folder-state") || "{}").lastSavedAt || 0;
+      } catch {
+        return 0;
+      }
+    })(),
+  },
 };
 
 const SNAPSHOT_KEY = "tubeshelf-rw-snapshots";
@@ -1363,6 +1391,260 @@ function toast(message) {
 }
 
 
+
+/* ---------- Local Google Drive folder (no OAuth) ---------- */
+function persistFolderState() {
+  try {
+    localStorage.setItem("tubeshelf-rw-folder-state", JSON.stringify({
+      lastSavedAt: state.folder.lastSavedAt || 0,
+    }));
+  } catch {}
+}
+
+async function refreshFolderFiles() {
+  if (!state.folder.handle) return [];
+  try {
+    const files = await listBackups(state.folder.handle);
+    state.folder.files = files;
+    state.folder.status = "ready";
+    state.folder.message = "";
+    return files;
+  } catch (error) {
+    state.folder.status = "error";
+    state.folder.message = error.message || "Could not read that folder.";
+    throw error;
+  }
+}
+
+async function restoreFolder() {
+  if (!state.folder.supported) return;
+  try {
+    const handle = await idbGet("folder-handle");
+    if (!handle) return;
+    state.folder.handle = handle;
+    state.folder.name = handle.name || "Drive folder";
+    const permission = await folderPermission(handle);
+    if (permission === "granted") {
+      await refreshFolderFiles();
+    } else {
+      state.folder.status = "needsPermission";
+    }
+  } catch (error) {
+    state.folder.status = "error";
+    state.folder.message = error.message || "Could not restore the folder.";
+  }
+  updateDriveButton();
+  updateLanding();
+}
+
+async function chooseFolder() {
+  if (!state.folder.supported) {
+    toast("This browser cannot choose a folder. Use Chrome or Edge.");
+    return;
+  }
+  try {
+    const handle = await pickFolder();
+    const permission = await requestFolderPermission(handle);
+    if (permission !== "granted") {
+      state.folder.status = "needsPermission";
+      state.folder.message = "Folder permission was not granted.";
+      renderDriveBody();
+      return;
+    }
+    state.folder.handle = handle;
+    state.folder.name = handle.name || "Drive folder";
+    state.folder.status = "ready";
+    state.folder.message = "";
+    try { await idbPut("folder-handle", handle); } catch {}
+    await refreshFolderFiles();
+    renderDriveBody();
+    updateDriveButton();
+    updateLanding();
+    toast(`Using ${state.folder.name}`);
+  } catch (error) {
+    if (error?.name !== "AbortError") toast(error.message || "Could not open the folder.");
+  }
+}
+
+async function reconnectFolder() {
+  if (!state.folder.handle) return;
+  try {
+    const permission = await requestFolderPermission(state.folder.handle);
+    if (permission !== "granted") {
+      toast("Folder permission was not granted.");
+      return;
+    }
+    await refreshFolderFiles();
+    renderDriveBody();
+    updateDriveButton();
+    updateLanding();
+  } catch (error) {
+    toast(error.message || "Could not reconnect the folder.");
+  }
+}
+
+async function forgetFolder() {
+  try { await idbDelete("folder-handle"); } catch {}
+  state.folder.handle = null;
+  state.folder.name = "";
+  state.folder.files = [];
+  state.folder.status = "off";
+  state.folder.message = "";
+  state.folder.lastSavedAt = 0;
+  persistFolderState();
+  renderDriveBody();
+  updateDriveButton();
+  updateLanding();
+  toast("Folder forgotten");
+}
+
+async function ensureFolder(request = false) {
+  if (!state.folder.handle) return false;
+  let permission = await folderPermission(state.folder.handle);
+  if (permission !== "granted" && request) {
+    permission = await requestFolderPermission(state.folder.handle);
+  }
+  if (permission !== "granted") {
+    state.folder.status = "needsPermission";
+    return false;
+  }
+  state.folder.status = "ready";
+  return true;
+}
+
+async function openLatestFolder() {
+  if (!(await ensureFolder(true))) {
+    toast("Choose the Google Drive folder first.");
+    return;
+  }
+  try {
+    const files = await refreshFolderFiles();
+    const latest = latestBackup(files.filter((file) => /\.json$/i.test(file.name)));
+    if (!latest) {
+      toast("No backups in that folder yet.");
+      renderDriveBody();
+      return;
+    }
+    if (state.store?.dirty
+        && !confirm("Replace the shelf in this browser with this folder backup? Unsaved local edits will be replaced.")) {
+      return;
+    }
+    const text = await readText(latest.entry);
+    loadText(text, latest.name);
+    state.folder.status = "ready";
+    closeModal("#drive-modal");
+    toast(`Opened ${latest.name}`);
+  } catch (error) {
+    state.folder.status = "error";
+    state.folder.message = error.message;
+    renderDriveBody();
+    toast(error.message);
+  }
+}
+
+async function openFolderFile(file) {
+  if (!(await ensureFolder(true))) return;
+  if (state.store?.dirty
+      && !confirm("Replace the shelf in this browser with this folder backup? Unsaved local edits will be replaced.")) {
+    return;
+  }
+  try {
+    const text = await readText(file.entry);
+    loadText(text, file.name);
+    closeModal("#drive-modal");
+    toast(`Opened ${file.name}`);
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function saveNowToFolder() {
+  if (!state.store) return;
+  if (!(await ensureFolder(true))) {
+    toast("Choose the Google Drive folder first.");
+    return;
+  }
+  try {
+    const name = backupName();
+    await writeText(state.folder.handle, name, currentBackup(state.store));
+    markSaved(state.store);
+    state.folder.lastSavedAt = Date.now();
+    persistFolderState();
+    await refreshFolderFiles();
+    renderMeta();
+    renderDriveBody();
+    scheduleDraft();
+    toast(`Saved ${name} to ${state.folder.name}`);
+  } catch (error) {
+    state.folder.status = "error";
+    state.folder.message = error.message;
+    renderDriveBody();
+    toast(error.message);
+  }
+}
+
+function folderSection() {
+  const folder = state.folder;
+  const section = el("section", { class: "folder-section" });
+  section.append(el("div", { class: "field-label", text: "Google Drive folder (no sign-in)" }));
+
+  if (!folder.supported) {
+    section.append(el("div", { class: "drive-hint" },
+      "This browser cannot open a folder. Use Chrome or Edge, or use “From this computer…” with an exported file."
+    ));
+    return section;
+  }
+
+  if (!folder.handle) {
+    section.append(
+      el("div", { class: "drive-hint" },
+        "No client ID or Google Cloud project. Install Google Drive for Desktop, then choose the folder it syncs (usually My Drive/TubeShelf Backups). The browser writes directly; Drive carries the files to the Mac."
+      ),
+      el("div", { class: "drive-actions" },
+        el("button", { class: "button primary", id: "folder-choose", onclick: chooseFolder }, "Choose Google Drive folder…"),
+        el("a", {
+          class: "button",
+          href: "https://github.com/somphol/tubeshelf-web-rw/blob/main/DRIVE.md#google-drive-for-desktop-no-oauth",
+          target: "_blank",
+          rel: "noreferrer noopener",
+          text: "Setup guide",
+        })
+      )
+    );
+    return section;
+  }
+
+  section.append(el("div", { class: "drive-hint" },
+    `Folder: ${folder.name}${folder.status === "needsPermission" ? " · permission needed" : ""}`
+  ));
+  section.append(el("div", { class: "drive-actions" },
+    folder.status === "needsPermission"
+      ? el("button", { class: "button primary", id: "folder-reconnect", onclick: reconnectFolder }, "Reconnect folder")
+      : null,
+    el("button", { class: "button primary", id: "folder-open-latest", onclick: openLatestFolder }, "Open latest"),
+    state.store ? el("button", { class: "button primary", id: "folder-save-now", onclick: saveNowToFolder }, "Save now") : null,
+    el("button", { class: "button", id: "folder-choose", onclick: chooseFolder }, "Choose folder…"),
+    el("button", { class: "button danger", id: "folder-forget", onclick: forgetFolder }, "Forget")
+  ));
+
+  if (folder.status === "error" && folder.message) {
+    section.append(el("div", { class: "tag-hint warn", text: folder.message }));
+  }
+
+  if (folder.files.length) {
+    const list = el("div", { class: "drive-list" });
+    for (const file of folder.files.slice(0, 8)) {
+      list.append(el("div", { class: "drive-row" },
+        el("span", { class: "name", text: file.name }),
+        el("span", { class: "when", text: new Date(file.lastModified).toLocaleString() }),
+        el("button", { class: "button", onclick: () => openFolderFile(file) }, "Open")
+      ));
+    }
+    section.append(list);
+  }
+  return section;
+}
+
 /* ---------- Google Drive + local snapshots ---------- */
 
 function configured() {
@@ -1388,6 +1670,19 @@ function driveClient() {
 function updateDriveButton() {
   const button = $("#drive");
   if (!button) return;
+  if (state.folder.status === "ready") {
+    const time = state.folder.lastSavedAt
+      ? new Date(state.folder.lastSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : "folder";
+    button.textContent = `Backups · ${time}`;
+    button.title = `Google Drive folder: ${state.folder.name}`;
+    return;
+  }
+  if (state.folder.handle && state.folder.status === "needsPermission") {
+    button.textContent = "Backups · folder";
+    button.title = "Reconnect the Google Drive folder";
+    return;
+  }
   if (state.drive.busy || state.drive.status === "connecting") {
     button.textContent = "Backups…";
   } else if (connected()) {
@@ -1409,17 +1704,33 @@ function updateDriveButton() {
 
 function updateLanding() {
   const isConfigured = configured();
+  const folderAvailable = state.folder.supported;
+  const folderReady = state.folder.status === "ready";
   const driveStart = $("#drive-start");
+  const folderStart = $("#folder-start");
   const choose = $("#choose");
   const setup = $("#drive-setup");
   const hint = $("#drive-hint");
-  if (driveStart) driveStart.hidden = !isConfigured;
-  if (choose) {
-    choose.classList.toggle("primary", !isConfigured);
-    choose.textContent = isConfigured ? "From this computer…" : "Choose a backup…";
+  if (folderStart) {
+    folderStart.hidden = !folderAvailable;
+    folderStart.textContent = folderReady
+      ? "Open from Google Drive folder"
+      : "Set up Google Drive folder";
   }
-  if (setup) setup.textContent = isConfigured ? "Google Drive settings" : "Set up Google Drive";
-  if (hint) hint.hidden = isConfigured || localStorage.getItem("tubeshelf-rw-drive-hint") === "off";
+  if (driveStart) driveStart.hidden = !isConfigured || folderAvailable;
+  if (choose) {
+    const localPrimary = !folderAvailable && !isConfigured;
+    choose.classList.toggle("primary", localPrimary);
+    choose.textContent = localPrimary ? "Choose a backup…" : "From this computer…";
+  }
+  if (setup) setup.textContent = "Google Drive & backups";
+  if (hint) {
+    hint.hidden = !folderAvailable
+      || folderReady
+      || Boolean(state.folder.handle)
+      || isConfigured
+      || localStorage.getItem("tubeshelf-rw-drive-hint") === "off";
+  }
 }
 
 function openDrivePanel(intent = "manage") {
@@ -1655,11 +1966,13 @@ async function maybeAutoSave() {
   const now = Date.now();
   const settings = state.drive.settings;
   const driveReady = settings.autoSave && tokenValid() && Boolean(state.drive.folderId);
+  const folderReady = state.folder.status === "ready" && Boolean(state.folder.handle);
+  const cloudReady = driveReady || folderReady;
   const plan = autoSavePlan({
     now,
     dirty: state.store.dirty,
-    driveReady,
-    lastCloudAt: state.drive.lastAutoSaveAt,
+    driveReady: cloudReady,
+    lastCloudAt: Math.max(state.drive.lastAutoSaveAt || 0, state.folder.lastSavedAt || 0),
     lastLocalAt: state.snapshots.lastAt,
     revision: state.store.revision,
     lastRevision: state.snapshots.revision,
@@ -1669,33 +1982,53 @@ async function maybeAutoSave() {
   if (plan.cloudDue) {
     state.autosaveBusy = true;
     try {
-      const name = autosaveName();
-      await driveClient().upload({
-        name,
-        text: currentBackup(state.store),
-        parents: [state.drive.folderId],
-      });
-      markSaved(state.store);
-      state.drive.lastAutoSaveAt = Date.now();
-      saveDriveState({ lastAutoSaveAt: state.drive.lastAutoSaveAt });
-      state.drive.status = "connected";
-      try {
-        const files = await driveClient().listFolder(state.drive.folderId);
-        state.drive.files = files;
-        const victims = retentionVictims(files, 24);
+      if (driveReady) {
+        const name = autosaveName();
+        await driveClient().upload({
+          name,
+          text: currentBackup(state.store),
+          parents: [state.drive.folderId],
+        });
+        markSaved(state.store);
+        state.drive.lastAutoSaveAt = Date.now();
+        saveDriveState({ lastAutoSaveAt: state.drive.lastAutoSaveAt });
+        state.drive.status = "connected";
+        try {
+          const files = await driveClient().listFolder(state.drive.folderId);
+          state.drive.files = files;
+          const victims = retentionVictims(files, 24);
+          for (const file of victims) {
+            try { await driveClient().delete(file.id); } catch {}
+          }
+        } catch {}
+        toast("Drive autosaved (hourly, changes only)");
+      } else {
+        await writeText(state.folder.handle, folderAutosaveName(), currentBackup(state.store));
+        markSaved(state.store);
+        state.folder.lastSavedAt = Date.now();
+        persistFolderState();
+        state.folder.status = "ready";
+        const files = await refreshFolderFiles();
+        const victims = folderRetentionVictims(files, 24);
         for (const file of victims) {
-          try { await driveClient().delete(file.id); } catch {}
+          try { await deleteFile(state.folder.handle, file.name); } catch {}
         }
-      } catch {}
+        await refreshFolderFiles();
+        toast("Folder autosaved (hourly, changes only)");
+      }
       renderMeta();
       updateDriveButton();
       renderDriveBody();
       scheduleDraft();
-      toast("Drive autosaved (hourly, changes only)");
       state.autosaveBusy = false;
       return;
     } catch (error) {
-      handleDriveError(error);
+      if (!driveReady) {
+        state.folder.status = "error";
+        state.folder.message = error.message;
+      } else {
+        handleDriveError(error);
+      }
       renderDriveBody();
     } finally {
       state.autosaveBusy = false;
@@ -1791,6 +2124,8 @@ function renderDriveBody() {
   const settings = state.drive.settings;
   const isConnected = connected();
   body.replaceChildren();
+  body.append(folderSection());
+  body.append(el("div", { class: "field-label", text: "Advanced: Google sign-in (app owner)" }));
 
   const dotClass = isConnected ? "on" : ["reconnect", "error"].includes(state.drive.status) ? "warn" : "";
   body.append(el("div", { class: "drive-status" },
@@ -1943,6 +2278,26 @@ function renderDriveBody() {
   ));
 }
 
+async function startFolderOpen() {
+  if (!state.folder.supported) {
+    toast("This browser cannot choose a folder. Use Chrome or Edge.");
+    return;
+  }
+  if (state.folder.status === "ready") {
+    await openLatestFolder();
+    return;
+  }
+  openDrivePanel("folder");
+  if (state.folder.status === "needsPermission") {
+    await reconnectFolder();
+  } else {
+    await chooseFolder();
+  }
+  if (state.folder.status === "ready" && state.folder.files.length) {
+    await openLatestFolder();
+  }
+}
+
 async function startDriveOpen() {
   if (!configured()) {
     openDrivePanel("setup");
@@ -1968,9 +2323,13 @@ $("#choose").addEventListener("click", () => $("#file").click());
 $("#demo").addEventListener("click", loadDemo);
 $("#add").addEventListener("click", openAdd);
 $("#drive").addEventListener("click", () => openDrivePanel("manage"));
+$("#folder-start").addEventListener("click", startFolderOpen);
 $("#drive-start").addEventListener("click", startDriveOpen);
 $("#drive-setup").addEventListener("click", () => openDrivePanel("setup"));
-$("#drive-hint-setup").addEventListener("click", () => openDrivePanel("setup"));
+$("#drive-hint-setup").addEventListener("click", () => {
+  if (state.folder.supported) startFolderOpen();
+  else openDrivePanel("setup");
+});
 $("#drive-hint-off").addEventListener("click", () => {
   localStorage.setItem("tubeshelf-rw-drive-hint", "off");
   $("#drive-hint").hidden = true;
@@ -2100,6 +2459,7 @@ function showLanding() {
 (async () => {
   updateLanding();
   updateDriveButton();
+  restoreFolder();
   if (new URLSearchParams(location.search).has("test")) {
     window.__tubeshelfTest = { state, maybeAutoSave, localSnapshots };
   }

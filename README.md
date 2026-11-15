@@ -44,15 +44,13 @@ start editing.
 - Pin channels alongside categories.
 - Local copy in IndexedDB: a reload reopens the last shelf and keeps your
   category, search and page. A banner lets you forget it.
-- **Google Drive (optional):** open the newest backup from Drive, save a new
-  timestamped backup, hourly autosave when changes exist, and retention of the
-  newest 24 web autosaves. The intended loop reuses the Mac app's
-  `My Drive/TubeShelf Backups` folder through **Google Drive for Desktop**, so web
-  edits appear locally on the Mac with no download or upload. Use Automatic mode
-  for Mac-created files; Pick a folder may not list them. End users only see
-  **Sign in with Google**; the app owner fills one public client ID in
-  [`src/drive-config.js`](src/drive-config.js) once. See [DRIVE.md](DRIVE.md) for
-  the owner step and the Google testing/verification limits.
+- **Google Drive folder (no OAuth):** install Google Drive for Desktop, choose
+  the synced `My Drive/TubeShelf Backups` folder once in **Backups**, and the
+  browser reads/writes it directly. No client ID, no Google Cloud project, no
+  sign-in. New timestamped saves and hourly `Local Sync` autosaves (newest 24)
+  sync through Drive to the Mac. Chrome/Edge only.
+- **Google sign-in (advanced, optional):** for computers without Drive for
+  Desktop. Needs an app-owner OAuth client; see [DRIVE.md](DRIVE.md).
 - **Local snapshots** when Drive is unavailable: hourly, change-only, newest 24,
   with Open / Download / Delete and a Snapshot now action.
 - Drive-first landing when configured, with **From this computer…** always beside
@@ -87,7 +85,8 @@ and snapshots; clearing site data removes them.
 - Handoff: [AGENTS.md](AGENTS.md) — architecture, decisions, gaps, Drive plan.
 - Plan: [PLAN.md](PLAN.md).
 - Tests: `npm test` (52 tests); browser proof: `npm run test:e2e` (fake Google
-  OAuth + Drive, no credentials) and `npm run test:e2e:graph` (WebGL + labels).
+  OAuth + Drive, no credentials), `npm run test:e2e:folder` (no-OAuth folder) and
+  `npm run test:e2e:graph` (WebGL + labels).
   Notes in [tests/E2E.md](tests/E2E.md). Drive setup: [DRIVE.md](DRIVE.md).
 - The Mac app is public: <https://github.com/somphol/tubeshelf>.
 - The read-only viewer remains at <https://somphol.github.io/tubeshelf-web-ro/>.

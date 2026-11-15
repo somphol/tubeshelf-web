@@ -16,11 +16,13 @@ No accounts required for the core loop.
 - IndexedDB draft and timestamped export.
 - Tests and a manual end-to-end pass.
 
-## Phase 2 — Google Drive (implemented; live OAuth verification pending)
+## Phase 2 — Google Drive (implemented)
 
 ### Permission model
 
-End-user UX: one **Sign in with Google** button. The owner configures one public
+Primary no-OAuth path: choose the local folder Google Drive for Desktop syncs
+(File System Access API); manual saves and hourly `Local Sync` autosaves write
+directly. OAuth is an advanced alternative: one **Sign in with Google** button. The owner configures one public
 client ID in `src/drive-config.js`; fields live under **Advanced**. Testing mode
 with test users avoids Google verification for a private app; public use beyond
 test users needs Google's Drive-scope review.

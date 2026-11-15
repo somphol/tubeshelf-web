@@ -5,7 +5,8 @@
     "test": "node --test tests/*.test.js",
     "serve": "python3 -m http.server 8770",
     "test:e2e": "node tests/drive-e2e.js",
-    "test:e2e:graph": "node tests/graph-e2e.js"
+    "test:e2e:graph": "node tests/graph-e2e.js",
+    "test:e2e:folder": "node tests/folder-e2e.js"
   },
   "devDependencies": {
     "puppeteer-core": "^24.0.0"

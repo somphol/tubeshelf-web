@@ -43,6 +43,7 @@ npm test                           # 52 unit tests (dev-only puppeteer dependenc
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 npm run test:e2e                   # fake Google OAuth + Drive, server must be running
+npm run test:e2e:folder            # no-OAuth local Drive folder save/open/autosave
 npm run test:e2e:graph             # 3D canvas, labels, click-to-filter, destroy
 python3 scripts/sync-taxonomy.py   # regenerate taxonomy from ../tubeshelf
 python3 scripts/sync-taxonomy.py --check
@@ -69,6 +70,8 @@ reason; the value is that the whole app is auditable in one sitting.
 - `src/drive-config.js` — public default OAuth client ID/API key and the default
   mode; empty in the repo. The owner fills it once so end users only see
   “Sign in with Google”. Never put a client secret here; token flow has none.
+- `src/folder.js` — File System Access folder backend (choose/list/read/write/
+  retention). No OAuth, no Cloud project.
 - `src/graph.js` — pure category graph (nodes, weighted shared-video links, degree
   cap, hidden unlinked count, group colours). Unit tested.
 - `src/graph-view.js` — lazy `3d-force-graph` mount, camera, hub labels,
@@ -87,6 +90,12 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
 
 ## Decisions and constraints
 
+- **The folder path is the default no-OAuth route.** `src/folder.js` uses
+  `showDirectoryPicker`/`createWritable`; the user chooses the folder Google Drive
+  for Desktop syncs, permission is requested on a gesture, and the handle is kept
+  in IndexedDB. Manual saves are timestamped; hourly `Local Sync` autosaves keep
+  24. Chrome/Edge only. OAuth remains an advanced alternative for machines
+  without Drive for Desktop. Do not make OAuth the first-run path.
 - **One client for all users.** End users must not see OAuth fields. The owner
   puts the public client ID in `src/drive-config.js`; `HAS_DRIVE_DEFAULTS` then
   hides the fields under **Advanced** and the Backups panel offers one

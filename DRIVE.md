@@ -13,6 +13,36 @@ If the app has no default client (or a user wants their own project), the
 Backups panel exposes an **Advanced** section with the client ID/API key fields.
 
 
+## Google Drive for Desktop (no OAuth)
+
+This is the recommended path. It needs **no Google Cloud project, no client ID and
+no sign-in**:
+
+1. Install **Google Drive for Desktop** on the computer you use at work and sign
+   in with the same Google account as the Mac. Let `My Drive` sync.
+2. Open this web app → **Backups** → **Google Drive folder (no sign-in)** →
+   **Choose Google Drive folder…**.
+3. Select `My Drive/TubeShelf Backups` — the folder the Mac app writes.
+4. **Open latest** reads the newest backup. **Save now** writes a new timestamped
+   file into the same folder; Drive for Desktop syncs it to the Mac.
+5. An hourly, change-only autosave writes `TubeShelf Autosave (Local Sync) …json`
+   and keeps the newest 24. Manual saves are never deleted.
+
+The browser writes directly with the File System Access API. Nothing is uploaded
+by this app; Drive for Desktop does the sync. The browser may ask to re-approve
+folder access after a restart — press **Reconnect folder**.
+
+**Browser support:** Chrome or Edge. Safari and Firefox do not expose directory
+access; use the Google sign-in path or a local export there.
+
+If Drive for Desktop is not available on the work computer, skip to the advanced
+Google sign-in section or use **From this computer…** with an exported backup.
+
+## Advanced: Google sign-in (optional)
+
+Use this only if you cannot install Drive for Desktop. It needs a Google Cloud
+project and an OAuth client.
+
 ## Two access modes
 
 | Mode | Scope | What it does | Cost |
@@ -27,7 +57,7 @@ reliable mode** because the Mac created the files. If Drive refuses new files in
 picked folder, switch to Automatic. Reconnect after switching modes: the scope
 changes.
 
-## One-click for end users (recommended)
+### One-click for end users (app owner setup)
 
 This is the setup to use if other people will use the page:
 
@@ -44,7 +74,7 @@ This is the setup to use if other people will use the page:
 
 The client ID is public. There is no client secret in a browser token flow.
 
-## One-time setup (owner, or Advanced)
+### One-time OAuth setup
 
 1. Open <https://console.cloud.google.com/> and create or select a project.
 2. Enable the **Google Drive API**:
@@ -133,7 +163,7 @@ autosave plan. A live OAuth round-trip has **not** been run in this repository
 because it needs a real Google Cloud client and account; verify your own project
 with the steps above before relying on it daily.
 
-## Recommended Mac ↔ web loop (reuse your Drive folder)
+## Why the shared folder works
 
 This is the setup the Mac app already supports:
 
