@@ -31,7 +31,7 @@ Implemented and manually verified on 2026-11-15:
 - Existing-category chips and type-ahead in the editor/add sheet; learned
   keyword profiles from the person's own filing and channel affinity.
 - A new video with no category requires confirmation before it becomes Unsorted.
-- 46 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
+- 54 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
 
 Not implemented: live OAuth verification (no credentials in the repo), course
 editing, bulk selection, in-place file save, redo UI, AI tagging.
@@ -39,7 +39,7 @@ editing, bulk selection, in-place file save, redo UI, AI tagging.
 ## Commands
 
 ```bash
-npm test                           # 52 unit tests (dev-only puppeteer dependency)
+npm test                           # 54 unit tests (dev-only puppeteer dependency)
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 npm run test:e2e                   # fake Google OAuth + Drive, server must be running
