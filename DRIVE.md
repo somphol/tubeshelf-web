@@ -103,10 +103,12 @@ snapshots until you do.
 
 ## Testing status
 
-The Drive transport is covered by unit tests with a fake `fetch`. A live OAuth
-round-trip has **not** been run in this repository because it needs a real Google
-Cloud client and account. Verify the setup with your own project before relying on
-it for daily work.
+`npm run test:e2e` stubs Google OAuth and the Drive REST API, then proves the real
+UI path: connect, create/open the folder, manual save, hourly autosave, local
+fallback, open-latest and reload. Unit tests cover the transport, retention and
+autosave plan. A live OAuth round-trip has **not** been run in this repository
+because it needs a real Google Cloud client and account; verify your own project
+with the steps above before relying on it daily.
 
 ## Recommended Mac ↔ web loop (reuse your Drive folder)
 

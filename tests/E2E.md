@@ -1,10 +1,25 @@
 # Manual end-to-end check
 
-The app has no build step and no npm dependency. Unit tests cover the data layer:
+The app has no runtime build step or dependency. Unit tests cover the data layer:
 
 ```bash
-node --test tests/
+npm test
 ```
+
+The committed Drive harness installs only dev dependencies and runs a real Chrome
+against a fake Google OAuth + Drive API:
+
+```bash
+npm install
+npm run serve        # in another terminal
+npm run test:e2e
+```
+
+It asserts: connect creates/opens `TubeShelf Backups`; manual Save writes a
+timestamped file; the hourly plan uploads an `Autosave (Web)` only when due and
+marks the shelf clean; a disconnected save writes one local snapshot and no Drive
+upload; Open latest loads it; reload restores the local session. No Google
+credentials or personal shelf are used (demo content only).
 
 For browser checks, serve the folder and drive a real Chrome with `puppeteer-core`.
 Install it in a disposable scratch folder so the app itself stays dependency-free:

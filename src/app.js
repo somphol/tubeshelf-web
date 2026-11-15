@@ -5,14 +5,13 @@ import {
   formatDuration,
   watchURL,
   suggestedFileName,
-  normalizeTags,
 } from "./format.js";
 import {
   createStore,
   currentBackup,
   displayVideos as storeVideos,
   counts,
-  setVideoFavorite,
+  markSaved,
   saveVideo,
   deleteVideo,
   addVideo,
@@ -22,7 +21,6 @@ import {
   canUndo,
   canRedo,
   undo,
-  redo,
   toggleTagPin,
   toggleChannelPin,
   renameTag,
@@ -59,9 +57,9 @@ import {
   scopeForMode,
   backupName,
   autosaveName,
-  isAutosaveName,
   retentionVictims,
   latestFile,
+  autoSavePlan,
   stamp,
 } from "./drive.js";
 
@@ -112,8 +110,6 @@ const state = {
 };
 
 const SNAPSHOT_KEY = "tubeshelf-rw-snapshots";
-const SNAPSHOT_KEEP = 24;
-const HOUR = 60 * 60 * 1000;
 
 try {
   const saved = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "null");
@@ -1239,7 +1235,6 @@ function toast(message) {
 
 
 /* ---------- Google Drive + local snapshots ---------- */
-const HOUR_MS = 60 * 60 * 1000;
 
 function configured() {
   const settings = state.drive.settings;
@@ -1530,12 +1525,19 @@ async function maybeAutoSave() {
   if (state.autosaveBusy || !state.store) return;
   const now = Date.now();
   const settings = state.drive.settings;
-  const dirty = state.store.dirty;
-  if (!dirty) return;
-
   const driveReady = settings.autoSave && tokenValid() && Boolean(state.drive.folderId);
-  if (driveReady) {
-    if (now - (state.drive.lastAutoSaveAt || 0) < HOUR_MS) return;
+  const plan = autoSavePlan({
+    now,
+    dirty: state.store.dirty,
+    driveReady,
+    lastCloudAt: state.drive.lastAutoSaveAt,
+    lastLocalAt: state.snapshots.lastAt,
+    revision: state.store.revision,
+    lastRevision: state.snapshots.revision,
+  });
+  if (!plan.cloudDue && !plan.localDue) return;
+
+  if (plan.cloudDue) {
     state.autosaveBusy = true;
     try {
       const name = autosaveName();
@@ -1561,19 +1563,19 @@ async function maybeAutoSave() {
       renderDriveBody();
       scheduleDraft();
       toast("Drive autosaved (hourly, changes only)");
+      state.autosaveBusy = false;
+      return;
     } catch (error) {
       handleDriveError(error);
       renderDriveBody();
-      // Fall through to the local snapshot after a failed cloud save.
     } finally {
       state.autosaveBusy = false;
     }
-    if (state.drive.status === "connected") return;
   }
 
-  if (now - state.snapshots.lastAt < HOUR_MS) return;
-  if (state.snapshots.revision === state.store.revision) return;
-  await writeLocalSnapshot();
+  if (plan.localDue || plan.localFallbackDue) {
+    await writeLocalSnapshot();
+  }
 }
 
 async function writeLocalSnapshot({ force = false } = {}) {
@@ -1950,6 +1952,9 @@ function showLanding() {
 (async () => {
   updateLanding();
   updateDriveButton();
+  if (new URLSearchParams(location.search).has("test")) {
+    window.__tubeshelfTest = { state, maybeAutoSave, localSnapshots };
+  }
   setInterval(() => {
     if (state.drive.status === "connected" && !tokenValid()) {
       state.drive.status = "reconnect";

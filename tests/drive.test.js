@@ -10,6 +10,8 @@ import {
   latestFile,
   multipartBody,
   scopeForMode,
+  autoSavePlan,
+  AUTO_SAVE_INTERVAL,
   DRIVE_SCOPE_FILE,
   DRIVE_SCOPE_FULL,
 } from "../src/drive.js";
@@ -128,4 +130,35 @@ test("DriveError carries the HTTP status", async () => {
     assert.equal(error.status, 403);
     return true;
   });
+});
+
+
+test("hourly plan prefers Drive, skips duplicates, and falls back locally", () => {
+  const hour = AUTO_SAVE_INTERVAL;
+  const now = 10 * hour;
+
+  assert.deepEqual(
+    autoSavePlan({ now, dirty: false, driveReady: true, lastCloudAt: 0, lastLocalAt: 0, revision: 2, lastRevision: 1 }),
+    { cloudDue: false, localDue: false, localFallbackDue: false }
+  );
+
+  assert.deepEqual(
+    autoSavePlan({ now, dirty: true, driveReady: true, lastCloudAt: now - hour, lastLocalAt: 0, revision: 2, lastRevision: 1 }),
+    { cloudDue: true, localDue: false, localFallbackDue: true }
+  );
+
+  assert.deepEqual(
+    autoSavePlan({ now, dirty: true, driveReady: true, lastCloudAt: now - 1000, lastLocalAt: 0, revision: 2, lastRevision: 1 }),
+    { cloudDue: false, localDue: false, localFallbackDue: true }
+  );
+
+  assert.deepEqual(
+    autoSavePlan({ now, dirty: true, driveReady: false, lastCloudAt: 0, lastLocalAt: now - hour, revision: 2, lastRevision: 1 }),
+    { cloudDue: false, localDue: true, localFallbackDue: true }
+  );
+
+  assert.deepEqual(
+    autoSavePlan({ now, dirty: true, driveReady: false, lastCloudAt: 0, lastLocalAt: now - hour, revision: 2, lastRevision: 2 }),
+    { cloudDue: false, localDue: false, localFallbackDue: false }
+  );
 });

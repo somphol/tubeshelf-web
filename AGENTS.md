@@ -39,12 +39,18 @@ editing, bulk selection, in-place file save, redo UI, AI tagging.
 ## Commands
 
 ```bash
-node --test tests/                 # 46 unit tests, no install
+npm test                           # 47 unit tests (dev-only puppeteer dependency)
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
+npm run test:e2e                   # fake Google OAuth + Drive, server must be running
 python3 scripts/sync-taxonomy.py   # regenerate taxonomy from ../tubeshelf
 python3 scripts/sync-taxonomy.py --check
 ```
+
+`npm install` is only needed for the browser E2E harness; the app itself has no
+runtime dependency. The E2E script stubs `accounts.google.com/gsi/client` and the
+Drive REST calls, then proves connect, manual save, hourly autosave, local
+fallback, open-latest and reload with `?test=1`.
 
 There is no build, bundler or runtime dependency. Do not add one without a strong
 reason; the value is that the whole app is auditable in one sitting.

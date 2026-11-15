@@ -89,6 +89,33 @@ export function retentionVictims(files, keep = 24) {
     .slice(keep);
 }
 
+export const AUTO_SAVE_INTERVAL = 60 * 60 * 1000;
+
+/**
+ * Decide the hourly work. Cloud wins when Drive is ready; a failed cloud save
+ * can still fall back to a local snapshot. A healthy Drive that is not due yet
+ * does not create a duplicate local snapshot.
+ */
+export function autoSavePlan({
+  now,
+  dirty,
+  driveReady,
+  lastCloudAt = 0,
+  lastLocalAt = 0,
+  revision = 0,
+  lastRevision = -1,
+  interval = AUTO_SAVE_INTERVAL,
+}) {
+  if (!dirty) return { cloudDue: false, localDue: false, localFallbackDue: false };
+  const localFallbackDue = now - lastLocalAt >= interval && revision !== lastRevision;
+  const cloudDue = Boolean(driveReady && now - lastCloudAt >= interval);
+  return {
+    cloudDue,
+    localDue: !driveReady && localFallbackDue,
+    localFallbackDue,
+  };
+}
+
 export function latestFile(files) {
   return files
     .slice()
@@ -204,7 +231,8 @@ export async function pickFromDrive({ apiKey, token, kind = "folder" }) {
 export class Drive {
   constructor(token, { fetchImpl = fetch } = {}) {
     this.token = token;
-    this.fetchImpl = fetchImpl;
+    // Native fetch throws "Illegal invocation" if called as an object method.
+    this.fetchImpl = fetchImpl === fetch ? fetch.bind(globalThis) : fetchImpl;
   }
 
   async request(url, options = {}) {
