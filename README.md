@@ -86,9 +86,9 @@ and snapshots; clearing site data removes them.
   app's schema; preserve unknown fields).
 - Handoff: [AGENTS.md](AGENTS.md) — architecture, decisions, gaps, Drive plan.
 - Plan: [PLAN.md](PLAN.md).
-- Tests: `npm test` (47 tests); browser proof: `npm run test:e2e` (fake Google
-  OAuth + Drive, no credentials). Notes in [tests/E2E.md](tests/E2E.md). Drive
-  setup: [DRIVE.md](DRIVE.md).
+- Tests: `npm test` (52 tests); browser proof: `npm run test:e2e` (fake Google
+  OAuth + Drive, no credentials) and `npm run test:e2e:graph` (WebGL + labels).
+  Notes in [tests/E2E.md](tests/E2E.md). Drive setup: [DRIVE.md](DRIVE.md).
 - The Mac app is public: <https://github.com/somphol/tubeshelf>.
 - The read-only viewer remains at <https://somphol.github.io/tubeshelf-web-ro/>.
 

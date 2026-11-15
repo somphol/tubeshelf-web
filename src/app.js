@@ -10,6 +10,7 @@ import {
   createStore,
   currentBackup,
   displayVideos as storeVideos,
+  displayPlaylists as storePlaylists,
   counts,
   markSaved,
   saveVideo,
@@ -45,6 +46,8 @@ import {
 } from "./tagger.js";
 import { demoBackup } from "./demo.js";
 import { HAS_DRIVE_DEFAULTS } from "./drive-config.js";
+import { buildGraph } from "./graph.js";
+import { mountGraph } from "./graph-view.js";
 import {
   Drive,
   DriveError,
@@ -108,6 +111,10 @@ const state = {
   },
   snapshots: { lastAt: 0, revision: -1 },
   autosaveBusy: false,
+  view: "grid",
+  graphSelected: null,
+  graphController: null,
+  graphToken: 0,
 };
 
 const SNAPSHOT_KEY = "tubeshelf-rw-snapshots";
@@ -480,9 +487,121 @@ function currentVideos() {
   return videos.sort((a, b) => b.addedAt - a.addedAt);
 }
 
+function destroyGraph() {
+  state.graphToken += 1;
+  state.graphController?.destroy();
+  state.graphController = null;
+}
+
+function renderGraphContent(videos) {
+  const content = $("#content");
+  const data = buildGraph(storeVideos(state.store), storePlaylists(state.store));
+  const active = state.filter.kind === "tag" ? state.filter.value : null;
+
+  const head = el("div", { class: "content-head" },
+    el("div", {},
+      el("h2", { text: "Category graph" }),
+      el("div", { class: "sub", text: `${data.nodes.length} linked categories · ${data.hiddenCount} unlinked hidden` })
+    ),
+    el("div", { class: "grow" }),
+    el("button", {
+      class: "button",
+      onclick: () => {
+        state.view = "grid";
+        renderContent();
+      },
+    }, "Grid"),
+    active ? el("button", {
+      class: "button primary",
+      onclick: () => {
+        state.view = "grid";
+        renderContent();
+      },
+    }, "Show videos") : null,
+    el("button", {
+      class: "button",
+      onclick: () => state.graphController?.reset(),
+    }, "Reset view")
+  );
+  content.append(head);
+
+  if (!data.nodes.length) {
+    content.append(el("div", { class: "empty" },
+      el("h3", { text: "No shared categories yet" }),
+      el("p", { text: "The 3D view draws a line when one video carries two categories. Add a second category to connect this shelf." })
+    ));
+    return;
+  }
+
+  const shell = el("div", { class: "graph-shell" });
+  const container = el("div", { class: "graph-container", id: "graph-container" });
+  const info = el("div", { class: "graph-info" });
+  const legend = el("div", { class: "graph-legend" },
+    "Drag to orbit · scroll to zoom · click a category to filter"
+  );
+  shell.append(container, info, legend);
+  content.append(shell);
+
+  const selectedNode = data.nodes.find((node) =>
+    active ? node.name.toLowerCase() === active.toLowerCase() : node.id === state.graphSelected
+  );
+  const paintInfo = (node) => {
+    info.replaceChildren();
+    if (!node) {
+      info.append(el("span", { class: "tag-hint", text: "Click a category for its videos" }));
+      return;
+    }
+    info.append(
+      el("strong", { text: node.name }),
+      el("span", { text: `${node.count} video${node.count === 1 ? "" : "s"} · ${node.group}` }),
+      el("button", {
+        class: "button primary",
+        onclick: () => {
+          state.filter = { kind: "tag", value: node.name };
+          state.view = "grid";
+          state.page = 0;
+          renderContent();
+        },
+      }, "Show videos")
+    );
+  };
+  paintInfo(selectedNode);
+  state.graphSelected = selectedNode?.id || null;
+  state.graphController?.destroy();
+  state.graphController = null;
+  const token = ++state.graphToken;
+
+  mountGraph(container, data, {
+    onSelect: (node) => {
+      state.filter = { kind: "tag", value: node.name };
+      state.graphSelected = node.id;
+      state.page = 0;
+      paintInfo(node);
+      renderSidebar();
+    },
+  }).then((controller) => {
+    if (token !== state.graphToken || state.view !== "graph" || !container.isConnected) {
+      controller.destroy();
+      return;
+    }
+    state.graphController = controller;
+    if (state.graphSelected) controller.select(state.graphSelected);
+  }).catch((error) => {
+    container.replaceChildren(el("div", { class: "empty" },
+      el("h3", { text: "3D is unavailable" }),
+      el("p", { text: error.message })
+    ));
+  });
+}
+
 function renderContent() {
   const content = $("#content");
+  destroyGraph();
   content.replaceChildren();
+  if (state.view === "graph") {
+    renderGraphContent(currentVideos());
+    return;
+  }
   const videos = currentVideos();
   const window = pageWindow(videos.length, state.pageSize, state.page);
   const shown = pageSlice(videos, window);
@@ -493,6 +612,15 @@ function renderContent() {
       el("div", { class: "sub", text: `${videos.length} video${videos.length === 1 ? "" : "s"}` })
     ),
     el("div", { class: "grow" }),
+    el("button", {
+      class: "button",
+      title: "Optional 3D category graph",
+      onclick: () => {
+        state.view = "graph";
+        state.page = 0;
+        renderContent();
+      },
+    }, "3D"),
     el("div", { class: "search" },
       el("input", {
         type: "search",

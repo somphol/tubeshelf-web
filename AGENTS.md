@@ -39,10 +39,11 @@ editing, bulk selection, in-place file save, redo UI, AI tagging.
 ## Commands
 
 ```bash
-npm test                           # 47 unit tests (dev-only puppeteer dependency)
+npm test                           # 52 unit tests (dev-only puppeteer dependency)
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 npm run test:e2e                   # fake Google OAuth + Drive, server must be running
+npm run test:e2e:graph             # 3D canvas, labels, click-to-filter, destroy
 python3 scripts/sync-taxonomy.py   # regenerate taxonomy from ../tubeshelf
 python3 scripts/sync-taxonomy.py --check
 ```
@@ -68,6 +69,11 @@ reason; the value is that the whole app is auditable in one sitting.
 - `src/drive-config.js` — public default OAuth client ID/API key and the default
   mode; empty in the repo. The owner fills it once so end users only see
   “Sign in with Google”. Never put a client secret here; token flow has none.
+- `src/graph.js` — pure category graph (nodes, weighted shared-video links, degree
+  cap, hidden unlinked count, group colours). Unit tested.
+- `src/graph-view.js` — lazy `3d-force-graph` mount, camera, hub labels,
+  click-to-filter, destroy. Only imported/loaded when the 3D view opens.
+- `vendor/3d-force-graph.min.js` — pinned 1.79.1 UMD (MIT), no CDN.
 - `src/tagger.js` — deterministic port of `HeuristicTagger`, `GuestNameExtractor`
   and `FormatTagger`. No network.
 - `src/taxonomy.js` / `.json` — generated from the Mac's `TagTaxonomy.swift`.

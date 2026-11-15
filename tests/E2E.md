@@ -15,7 +15,16 @@ npm run serve        # in another terminal
 npm run test:e2e
 ```
 
-It asserts: connect creates/opens `TubeShelf Backups`; manual Save writes a
+For the 3D view:
+
+```bash
+npm run test:e2e:graph
+```
+
+It opens the demo, waits for the WebGL canvas, asserts hub labels, clicks one,
+checks the info card, returns to Grid and confirms the graph was destroyed.
+
+The Drive harness asserts: connect creates/opens `TubeShelf Backups`; manual Save writes a
 timestamped file; the hourly plan uploads an `Autosave (Web)` only when due and
 marks the shelf clean; a disconnected save writes one local snapshot and no Drive
 upload; Open latest loads it; reload restores the local session. No Google

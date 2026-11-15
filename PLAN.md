@@ -82,6 +82,11 @@ handles folder creation.
 
 ## Phase 3 — courses and scale
 
+The optional web 3D graph is implemented alongside this phase: a pure
+`buildGraph`, a vendored lazy `3d-force-graph`, hub labels, click-to-filter and
+`test:e2e:graph`. It is a showpiece; the grid remains the editing surface.
+
+
 - Read/write courses: existing ticks, manual chapter rows, tags, title.
 - Bulk selection (favorite, watched, add/remove categories) with one undo.
 - Category manager view, channel pins UI parity.
