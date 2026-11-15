@@ -25,16 +25,19 @@ python3 -m http.server 8770
 
 1. Open `http://localhost:8770/`, click **Open the demo shelf**.
    Expect 7 cards, 1 course, no console errors.
-2. Open the first card, set the note to `Edited on the web`, type `Test Tag` and
+2. Open the first card. The **Your categories** chips and the type-ahead list the
+   shelf's categories. Set the note to `Edited on the web`, type `Test Tag` and
    press Return, press **Save**. Expect `· Edited`, an enabled Undo and the tag
-   on the card.
+   on the card. Re-open and confirm `Test Tag` appears under Your categories.
 3. Wait ~1.5 s, open a **second tab** to the same URL. The shelf restores
    automatically (landing hidden, 7 cards) with a **Restored last session**
    banner. The filter/search/page should match the first tab. Press **Keep**.
    (A reload in a dirty tab triggers the beforeunload prompt; accept it.)
 4. **Add video**, paste `https://www.youtube.com/watch?v=kJQP7kiw5Fk`, press
-   **Fetch details**. Expect title/channel from oEmbed within ~3 s; add it.
-   Expect 8 cards.
+   **Fetch details**. Expect title/channel from oEmbed within ~3 s. Leave the
+   categories empty, press **Add to shelf**; expect the confirmation
+   “No category selected…”, dismiss it, and confirm the card count is unchanged.
+   Pick an existing category chip, add it, and confirm 8 cards.
 5. Press **Export backup**. Expect `TubeShelf YYYY-MM-DD HH.MM.SS.json` in the
    download folder with 8 videos, the edited note/tag and the new video.
 6. Delete the demo card, press Undo; the card returns.

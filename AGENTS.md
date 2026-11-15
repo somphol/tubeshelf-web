@@ -28,7 +28,10 @@ Implemented and manually verified on 2026-11-15:
 - Local snapshots when Drive is unavailable: hourly, change-only, newest 24,
   open/download/delete, Snapshot now.
 - Drive-first landing when configured; local file always beside it.
-- 44 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
+- Existing-category chips and type-ahead in the editor/add sheet; learned
+  keyword profiles from the person's own filing and channel affinity.
+- A new video with no category requires confirmation before it becomes Unsorted.
+- 46 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
 
 Not implemented: live OAuth verification (no credentials in the repo), course
 editing, bulk selection, in-place file save, redo UI, AI tagging.
@@ -36,7 +39,7 @@ editing, bulk selection, in-place file save, redo UI, AI tagging.
 ## Commands
 
 ```bash
-node --test tests/                 # 44 unit tests, no install
+node --test tests/                 # 46 unit tests, no install
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 python3 scripts/sync-taxonomy.py   # regenerate taxonomy from ../tubeshelf
@@ -113,6 +116,16 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
 - **Taxonomy is generated.** Category names, keywords, parents and aliases come
   from the Swift file. If the Mac taxonomy changes, run the sync script and commit
   both generated files.
+- **Suggestions use the person's own filing.** `buildCategoryProfiles` learns up
+  to ten discriminative title words per user category (at least two videos,
+  stopwords removed); profile hits score 2 each, capped at 4, so they cannot
+  outrank a real taxonomy/title hit. `channelAffinity` appends the channel's usual
+  category (3+ videos, 2+ in the category, 60% share). The editor/add sheet shows
+  existing categories as chips and a datalist so the user can file explicitly.
+  Do not turn profile words into strong keywords; noisy categories then beat
+  Math/Finance/Education on incidental words.
+- **A new uncategorised video is confirmed.** Both the Mac app and this app ask
+  before adding it as Unsorted. Do not make the button a silent path.
 - **Guest rules are deliberate.** Titles and the user's note are the only text
   available. Honorifics/credentials are stripped; one-word stage names keep their
   title; `with`, `ft.`, `feat.`, colon prefixes, `|` sides and numbered-episode
@@ -174,6 +187,8 @@ Read [PLAN.md](PLAN.md) for the full design. Summary:
 - No bulk selection, no redo button, no file picker “save”.
 - The local copy is one global slot; loading a second shelf replaces it after the
   1.2 s debounce.
+- Learned profile words can still be noisy for tiny categories; the explicit
+  category chips are the reliable path.
 - Category UI uses `prompt`/`confirm`; acceptable now, replace with a dialog for
   polish.
 - Tag suggestions cannot see YouTube descriptions, so description-only guests

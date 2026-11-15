@@ -3,6 +3,23 @@
 import { TAXONOMY } from "./taxonomy.js";
 
 const TAXONOMY_NAMES = new Set(TAXONOMY.categories.map((category) => category.name.toLowerCase()));
+export const TAXONOMY_CATEGORY_NAMES = TAXONOMY.categories.map((category) => category.name);
+
+/** Common words that carry no filing signal. */
+const STOPWORDS = new Set([
+  "the", "and", "for", "with", "this", "that", "these", "those", "from", "into",
+  "about", "over", "under", "when", "where", "who", "whom", "whose", "are", "was",
+  "were", "will", "would", "can", "could", "should", "not", "all", "any", "more",
+  "most", "than", "then", "them", "they", "their", "there", "here", "just", "like",
+  "get", "got", "out", "one", "two", "new", "best", "top", "full", "video",
+  "youtube", "official", "shorts", "watch", "part", "episode", "how", "why",
+  "what", "you", "your", "our", "his", "her", "its", "but", "has", "have", "had",
+  "does", "did", "doing", "make", "made", "use", "using", "way", "ways", "thing",
+  "things", "people", "really", "actually", "every", "much", "many", "some",
+  "only", "also", "very", "still", "even", "now", "own", "off", "per", "via",
+  "vs", "let", "say", "said", "says", "see", "seen", "look", "looks", "know",
+  "want", "need", "take", "takes", "give", "gives", "first", "last", "next",
+]);
 
 export function fold(value) {
   return String(value ?? "")
@@ -35,7 +52,7 @@ function contains(keyword, text) {
   return false;
 }
 
-function categoryCandidates(knownCategories) {
+function categoryCandidates(knownCategories, profiles = {}) {
   const candidates = TAXONOMY.categories.map((category) => ({
     name: category.name,
     keywords: category.keywords,
@@ -48,14 +65,81 @@ function categoryCandidates(knownCategories) {
     const key = name.toLowerCase();
     if (!name || seen.has(key) || TAXONOMY_NAMES.has(key)) continue;
     seen.add(key);
-    candidates.push({ name, keywords: [name], weakKeywords: [], parent: null });
+    // Your own categories get words learned from the titles you filed under them.
+    const learned = profiles[key] || [];
+    candidates.push({ name, keywords: [name], weakKeywords: [], profileKeywords: learned, parent: null });
   }
   return candidates;
 }
 
-function categoryTags(title, channel, body, knownCategories, limit = 3) {
+/**
+ * Build discriminative keywords for the person's own categories from the shelf.
+ * A word needs to appear in at least two titles in the category and be more
+ * common there than across the rest of the library.
+ */
+export function buildCategoryProfiles(videos, limit = 10) {
+  const totals = new Map();
+  const global = new Map();
+  const perCategory = new Map();
+  let tagged = 0;
+
+  for (const video of videos) {
+    const tags = [...new Set((video.tags || []).map((tag) => String(tag).toLowerCase()))];
+    if (!tags.length) continue;
+    tagged += 1;
+    const words = new Set(
+      [...tokens(video.title), ...tokens(video.note || "")]
+        .filter((word) => word.length >= 3 && !STOPWORDS.has(word) && !/^\d+$/.test(word))
+    );
+    for (const word of words) global.set(word, (global.get(word) || 0) + 1);
+    for (const tag of tags) {
+      if (TAXONOMY_NAMES.has(tag)) continue;
+      totals.set(tag, (totals.get(tag) || 0) + 1);
+      let map = perCategory.get(tag);
+      if (!map) {
+        map = new Map();
+        perCategory.set(tag, map);
+      }
+      for (const word of words) map.set(word, (map.get(word) || 0) + 1);
+    }
+  }
+
+  const profiles = {};
+  for (const [category, counts] of perCategory) {
+    const total = totals.get(category) || 1;
+    profiles[category] = [...counts.entries()]
+      .filter(([word, count]) => count >= 2 && word.length >= 3)
+      .map(([word, count]) => ({ word, count, score: (count / total) * Math.log(1 + tagged / (global.get(word) || 1)) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((entry) => entry.word);
+  }
+  return profiles;
+}
+
+/** The category this channel is usually filed under, or null. */
+export function channelAffinity(videos, channel) {
+  const key = fold(channel);
+  if (!key) return null;
+  const relevant = videos.filter((video) => fold(video.channel) === key);
+  if (relevant.length < 3) return null;
+  const tally = new Map();
+  const spelling = new Map();
+  for (const video of relevant) {
+    for (const tag of video.tags || []) {
+      const lower = String(tag).toLowerCase();
+      tally.set(lower, (tally.get(lower) || 0) + 1);
+      if (!spelling.has(lower)) spelling.set(lower, tag);
+    }
+  }
+  const [top] = [...tally.entries()].sort((a, b) => b[1] - a[1]);
+  if (!top || top[1] < 2 || top[1] / relevant.length < 0.6) return null;
+  return spelling.get(top[0]);
+}
+
+function categoryTags(title, channel, body, knownCategories, profiles, limit = 3) {
   const scored = [];
-  for (const category of categoryCandidates(knownCategories)) {
+  for (const category of categoryCandidates(knownCategories, profiles)) {
     let strongTitle = 0;
     let strongChannel = 0;
     let strongBody = 0;
@@ -64,6 +148,11 @@ function categoryTags(title, channel, body, knownCategories, limit = 3) {
       if (contains(keyword, channel)) strongChannel += 1;
       if (contains(keyword, body)) strongBody += 1;
     }
+    let profileTitle = 0;
+    for (const word of category.profileKeywords || []) {
+      if (contains(word, title)) profileTitle += 1;
+    }
+
     let weakTitle = 0;
     let weakChannel = 0;
     let weakBody = 0;
@@ -78,8 +167,9 @@ function categoryTags(title, channel, body, knownCategories, limit = 3) {
       2 * Math.min(strongBody, 2) +
       Math.min(weakTitle, 2) +
       Math.min(weakChannel, 1) +
-      Math.min(weakBody, 1);
-    const anchored = strongTitle > 0 || strongChannel > 0 || weakTitle > 0;
+      Math.min(weakBody, 1) +
+      2 * Math.min(profileTitle, 2);
+    const anchored = strongTitle > 0 || strongChannel > 0 || weakTitle > 0 || profileTitle > 0;
     if (score >= 4 && anchored) scored.push({ name: category.name, score, parent: category.parent });
   }
   scored.sort((a, b) => (a.score === b.score ? a.name.localeCompare(b.name) : b.score - a.score));
@@ -230,9 +320,22 @@ export function formatTags(title, channel = "", note = "", guest = null) {
   return hits >= 2 ? ["Talks & Podcasts"] : [];
 }
 
-export function suggestTags({ title, channel = "", note = "", knownCategories = [] }) {
+export function suggestTags({
+  title,
+  channel = "",
+  note = "",
+  knownCategories = [],
+  profiles = {},
+  channelHint = null,
+}) {
   const body = note;
-  const base = categoryTags(title, channel, body, knownCategories);
+  let base = categoryTags(title, channel, body, knownCategories, profiles);
+  if (channelHint
+      && !base.some((name) => name.toLowerCase() === channelHint.toLowerCase())) {
+    const known = TAXONOMY_NAMES.has(channelHint.toLowerCase())
+      || knownCategories.some((name) => name.toLowerCase() === channelHint.toLowerCase());
+    if (known) base.push(channelHint);
+  }
   const guest = guestName(title, channel, note);
   const extras = [];
   for (const tag of formatTags(title, channel, note, guest)) {

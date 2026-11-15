@@ -39,7 +39,12 @@ import {
   pageSlice,
   PAGE_SIZES,
 } from "./shelf.js";
-import { suggestTags } from "./tagger.js";
+import {
+  suggestTags,
+  buildCategoryProfiles,
+  channelAffinity,
+  TAXONOMY_CATEGORY_NAMES,
+} from "./tagger.js";
 import { demoBackup } from "./demo.js";
 import {
   Drive,
@@ -627,6 +632,38 @@ function pager(items, window) {
   );
 }
 
+/* ---------- categories ---------- */
+function allCategoryNames() {
+  const map = new Map();
+  for (const entry of counts(state.store).categories) map.set(entry.name.toLowerCase(), entry.name);
+  for (const name of TAXONOMY_CATEGORY_NAMES) {
+    if (!map.has(name.toLowerCase())) map.set(name.toLowerCase(), name);
+  }
+  return [...map.values()].sort((a, b) => a.localeCompare(b));
+}
+
+function otherCategories(workingTags, limit = 12) {
+  return counts(state.store).categories
+    .filter((entry) => !workingTags.some(
+      (tag) => tag.toLowerCase() === entry.name.toLowerCase()
+    ))
+    .slice(0, limit);
+}
+
+function paintKnownCategories(container, workingTags, onAdd) {
+  const existing = otherCategories(workingTags);
+  container.replaceChildren(...existing.map((entry) =>
+    el("button", {
+      class: "tag-chip",
+      title: `${entry.count} video${entry.count === 1 ? "" : "s"}`,
+      onclick: () => onAdd(entry.name),
+    }, entry.name)
+  ));
+  if (!existing.length) {
+    container.append(el("span", { class: "tag-hint", text: "No other categories yet" }));
+  }
+}
+
 /* ---------- editor ---------- */
 function openEditor(youtubeID) {
   const raw = videoByYoutubeID(state.store, youtubeID);
@@ -638,12 +675,16 @@ function openEditor(youtubeID) {
     isFavorite: Boolean(raw.isFavorite),
     watchStatus: raw.watchStatus || "unwatched",
   };
+  const videos = storeVideos(state.store);
   const known = counts(state.store).categories.map((entry) => entry.name);
+  const profiles = buildCategoryProfiles(videos);
   let suggestions = suggestTags({
     title: video.title,
     channel: video.channel,
     note: working.note,
     knownCategories: known,
+    profiles,
+    channelHint: channelAffinity(videos, video.channel),
   }).tags;
 
   const body = $("#editor-body");
@@ -651,9 +692,15 @@ function openEditor(youtubeID) {
   $("#editor-title").textContent = "Edit video";
   const tagsBox = el("div", { class: "chip-list" });
   const suggestBox = el("div", { class: "chip-list" });
+  const knownBox = el("div", { class: "chip-list" });
+  const listId = "editor-category-list";
+  const datalist = el("datalist", { id: listId },
+    allCategoryNames().map((name) => el("option", { value: name }))
+  );
   const input = el("input", {
     type: "text",
-    placeholder: "Type a category, then Return",
+    placeholder: "Type your category, or pick one below",
+    list: listId,
     onkeydown: (event) => {
       if (event.key !== "Enter") return;
       event.preventDefault();
@@ -693,6 +740,10 @@ function openEditor(youtubeID) {
     if (!extra.length) {
       suggestBox.append(el("span", { class: "tag-hint", text: "No more suggestions" }));
     }
+    paintKnownCategories(knownBox, working.tags, (name) => {
+      working.tags.push(name);
+      paintTags();
+    });
   }
 
   const preview = el("div", { class: "edit-preview" },
@@ -716,8 +767,11 @@ function openEditor(youtubeID) {
       el("div", { class: "field-label", text: "Categories" }),
       tagsBox,
       el("div", { class: "tag-entry" }, input),
-      el("div", { class: "tag-hint", text: "Suggested from the title and channel" }),
-      suggestBox
+      datalist,
+      el("div", { class: "tag-hint", text: "Suggested from the title, channel and your shelf" }),
+      suggestBox,
+      el("div", { class: "field-label", text: "Your categories" }),
+      knownBox
     ),
     el("div", { class: "field" },
       el("label", { text: "Why you saved it" }),
@@ -824,9 +878,17 @@ function openAdd() {
   };
   const body = $("#add-body");
   body.replaceChildren();
+  const videos = storeVideos(state.store);
+  const profiles = buildCategoryProfiles(videos);
   const preview = el("div", { class: "edit-preview" });
   const tagBox = el("div", { class: "chip-list" });
   const suggestBox = el("div", { class: "chip-list" });
+  const knownBox = el("div", { class: "chip-list" });
+  const warning = el("div", { class: "tag-hint warn", hidden: true, text: "No category yet — this will be Unsorted." });
+  const listId = "add-category-list";
+  const datalist = el("datalist", { id: listId },
+    allCategoryNames().map((name) => el("option", { value: name }))
+  );
   const titleInput = el("input", {
     type: "text",
     placeholder: "Title",
@@ -870,6 +932,11 @@ function openAdd() {
         },
       }, tag)
     ));
+    paintKnownCategories(knownBox, working.tags, (name) => {
+      working.tags.push(name);
+      paintTags();
+    });
+    warning.hidden = working.tags.length > 0;
   }
 
   function suggest() {
@@ -878,6 +945,8 @@ function openAdd() {
       channel: working.channel,
       note: working.note,
       knownCategories: counts(state.store).categories.map((entry) => entry.name),
+      profiles,
+      channelHint: channelAffinity(videos, working.channel),
     }).tags;
     paintTags();
   }
@@ -955,7 +1024,8 @@ function openAdd() {
       el("div", { class: "tag-entry" },
         el("input", {
           type: "text",
-          placeholder: "Type a category, then Return",
+          placeholder: "Type your category, or pick one below",
+          list: listId,
           onkeydown: (event) => {
             if (event.key !== "Enter") return;
             event.preventDefault();
@@ -968,7 +1038,11 @@ function openAdd() {
         }),
         el("button", { class: "button", onclick: suggest }, "Suggest")
       ),
-      suggestBox
+      datalist,
+      suggestBox,
+      el("div", { class: "field-label", text: "Your categories" }),
+      knownBox,
+      warning
     ),
     el("div", { class: "field" },
       el("label", { text: "Why you saved it" }),
@@ -998,6 +1072,9 @@ function openAdd() {
             toast("A title is required.");
             return;
           }
+          if (!working.tags.length && !confirm("No category selected. Add this video as Unsorted?")) {
+            return;
+          }
           const video = newVideo({
             youtubeID: working.id,
             title: working.title,
@@ -1013,6 +1090,7 @@ function openAdd() {
       }, "Add to shelf")
     )
   );
+  paintTags();
   paintPreview();
   $("#add-modal").hidden = false;
   urlInput.focus();

@@ -34,8 +34,12 @@ start editing.
 - Load `tubeshelf.backup` or a raw `library.json`; unknown fields are preserved.
 - Grid, categories, channels, favorites, unwatched, unsorted, search and paging.
 - Edit a video: categories (with suggestions), note, favorite, watched, remove.
+  Existing categories are shown as chips and in the type-ahead; suggestions learn
+  keywords from the titles you already filed under your own categories.
 - Add a video by URL: title and channel come from YouTube oEmbed; thumbnail and
   suggestions follow. Duplicate IDs are refused.
+- Adding a new video with **no category** asks for confirmation; it is never
+  silently filed as Unsorted.
 - Category actions: pin/unpin, rename, merge into another category, delete.
 - Pin channels alongside categories.
 - Local copy in IndexedDB: a reload reopens the last shelf and keeps your
@@ -80,7 +84,7 @@ and snapshots; clearing site data removes them.
   app's schema; preserve unknown fields).
 - Handoff: [AGENTS.md](AGENTS.md) — architecture, decisions, gaps, Drive plan.
 - Plan: [PLAN.md](PLAN.md).
-- Tests: `node --test tests/` (44 tests); manual end-to-end notes in
+- Tests: `node --test tests/` (46 tests); manual end-to-end notes in
   [tests/E2E.md](tests/E2E.md). Drive setup: [DRIVE.md](DRIVE.md).
 - The Mac app is public: <https://github.com/somphol/tubeshelf>.
 - The read-only viewer remains at <https://somphol.github.io/tubeshelf-web-ro/>.
