@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https://i.ytimg.com data:; connect-src https://www.youtube.com https://www.youtube-nocookie.com; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>TubeShelf — editable</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <span>TubeShelf</span>
+      <span class="badge">editable</span>
+    </div>
+    <div class="file-meta" id="file-meta"></div>
+    <div class="topbar-actions">
+      <button class="button" id="open">Open…</button>
+      <button class="button" id="add" disabled>Add video</button>
+      <button class="button" id="undo" disabled title="Undo (⌘Z)">Undo</button>
+      <button class="button primary" id="export" disabled title="Export backup (⌘S)">Export backup</button>
+      <input type="file" id="file" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <section id="draft-banner" class="draft-banner" hidden>
+    <div>
+      <strong>Unsaved draft on this device</strong>
+      <span id="draft-meta"></span>
+    </div>
+    <div class="draft-actions">
+      <button class="button" id="draft-discard">Discard</button>
+      <button class="button primary" id="draft-restore">Restore draft</button>
+    </div>
+  </section>
+
+  <main id="main" hidden>
+    <aside id="sidebar" aria-label="Filters"></aside>
+    <section id="content" aria-live="polite"></section>
+  </main>
+
+  <section id="landing">
+    <div class="landing-card">
+      <h1>Open a shelf to edit</h1>
+      <p>
+        Pick a <code>tubeshelf.backup</code> or <code>library.json</code> from the Mac app.
+        It is parsed in this browser; edits stay here until you export a backup.
+      </p>
+      <div class="landing-actions">
+        <button class="button primary" id="choose">Choose a backup…</button>
+        <button class="link" id="demo">Open the demo shelf</button>
+      </div>
+      <p class="fine">No account. No upload. The demo contains public YouTube links only.</p>
+    </div>
+  </section>
+
+  <div id="drop" class="drop-overlay" hidden><div>Drop the backup to edit it</div></div>
+  <div id="toast" class="toast" hidden></div>
+  <div id="context-menu" class="context-menu" hidden></div>
+
+  <div id="editor-modal" class="modal" hidden>
+    <div class="modal-panel editor-panel" role="dialog" aria-modal="true" aria-label="Edit video">
+      <div class="modal-head">
+        <h2 id="editor-title">Edit video</h2>
+        <button class="icon-button" id="editor-close" title="Close (esc)">✕</button>
+      </div>
+      <div id="editor-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="add-modal" class="modal" hidden>
+    <div class="modal-panel add-panel" role="dialog" aria-modal="true" aria-label="Add video">
+      <div class="modal-head">
+        <h2>Add a video</h2>
+        <button class="icon-button" id="add-close" title="Close (esc)">✕</button>
+      </div>
+      <div id="add-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="merge-modal" class="modal" hidden>
+    <div class="modal-panel small-panel" role="dialog" aria-modal="true" aria-label="Merge category">
+      <div class="modal-head">
+        <h2>Merge category</h2>
+        <button class="icon-button" id="merge-close" title="Close (esc)">✕</button>
+      </div>
+      <div id="merge-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

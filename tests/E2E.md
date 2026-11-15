@@ -1,0 +1,43 @@
+# Manual end-to-end check
+
+The app has no build step and no npm dependency. Unit tests cover the data layer:
+
+```bash
+node --test tests/
+```
+
+For browser checks, serve the folder and drive a real Chrome with `puppeteer-core`
+(`node /tmp/webcheck/...` works on this machine; Chrome headless clamps
+`--window-size` to 500 CSS px, so use `page.setViewport` for narrow checks).
+
+```bash
+python3 -m http.server 8770
+```
+
+## Flow verified 2026-11-15
+
+1. Open `http://localhost:8770/`, click **Open the demo shelf**.
+   Expect 7 cards, 1 course, no console errors.
+2. Open the first card, set the note to `Edited on the web`, type `Test Tag` and
+   press Return, press **Save**. Expect `· Edited`, an enabled Undo and the tag
+   on the card.
+3. Wait ~1.5 s, open a **second tab** to the same URL. Expect the draft banner.
+   (A reload in the same tab triggers the beforeunload prompt; use a second tab
+   or accept the dialog.) Press **Restore draft**; the note and tag return.
+4. **Add video**, paste `https://www.youtube.com/watch?v=kJQP7kiw5Fk`, press
+   **Fetch details**. Expect title/channel from oEmbed within ~3 s; add it.
+   Expect 8 cards.
+5. Press **Export backup**. Expect `TubeShelf YYYY-MM-DD HH.MM.SS.json` in the
+   download folder with 8 videos, the edited note/tag and the new video.
+6. Delete the demo card, press Undo; the card returns.
+
+## Notes from the first pass
+
+- oEmbed CORS works from `http://localhost:8770` and the Pages origin; the watch
+  page does not, so description/duration are unavailable.
+- `newVideo` uses `crypto.randomUUID()`; all origins used are secure contexts.
+- CSP allows only `self` scripts, `unsafe-inline` styles for progress widths,
+  `i.ytimg.com` images, and `youtube.com`/`youtube-nocookie.com` for oEmbed.
+- Export downloads are not blocked by the CSP.
+- The draft key is currently a single `draft` record; opening a different shelf
+  replaces it. Phase 2 should key by file identity.
