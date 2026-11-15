@@ -7,8 +7,9 @@ back on the Mac.
 
 No account, no server, no upload. The file is parsed in the browser.
 
-> **Status: phase 1.** Editing videos, adding by link, category actions and export
-> work. Google Drive sync and course editing are next; see [PLAN.md](PLAN.md).
+> **Status: phase 2.** Editing, adding by link, category actions, export, Google
+> Drive open/save, hourly autosave and local snapshots are implemented. Course
+> editing is next; see [PLAN.md](PLAN.md) and [DRIVE.md](DRIVE.md).
 
 ## Run it
 
@@ -39,13 +40,21 @@ start editing.
 - Pin channels alongside categories.
 - Local copy in IndexedDB: a reload reopens the last shelf and keeps your
   category, search and page. A banner lets you forget it.
+- **Google Drive (optional):** open the newest backup from Drive, save a new
+  timestamped backup, hourly autosave when changes exist, and retention of the
+  newest 24 web autosaves. Needs a one-time OAuth client; see [DRIVE.md](DRIVE.md).
+- **Local snapshots** when Drive is unavailable: hourly, change-only, newest 24,
+  with Open / Download / Delete and a Snapshot now action.
+- Drive-first landing when configured, with **From this computer…** always beside
+  it.
 - **⌘S** export, **⌘N** add, **⌘F** search, **⌘Z** undo, **Esc** close.
 - Mobile-width layout for quick edits.
 
 ## What is not here yet
 
-- Google Drive connect/Picker and hourly autosave (designed in [PLAN.md](PLAN.md)).
 - Course/playlist editing; courses are counted but not shown or tickable here.
+- Live OAuth verification: the client ships without credentials; each user creates
+  one. The transport is unit-tested, the real round-trip is not.
 - In-place file saving; export downloads a new backup.
 - Multiple shelves cached at once: the local copy is a single slot.
 - Description and duration for new videos: the watch page is CORS-blocked, so only
@@ -55,10 +64,11 @@ start editing.
 
 ## Privacy
 
-The app makes exactly two network requests: YouTube oEmbed for a pasted link, and
-thumbnails from `i.ytimg.com`. No analytics, no fonts, no uploads. The IndexedDB
-draft is local to the browser and can be discarded from the banner or by clearing
-site data.
+Without Drive, the app makes exactly two network requests: YouTube oEmbed for a
+pasted link, and thumbnails from `i.ytimg.com`. With Drive connected it also talks
+to `accounts.google.com`, `oauth2.googleapis.com` and `www.googleapis.com`, only
+for the folder you choose. No analytics, no fonts. IndexedDB holds the local copy
+and snapshots; clearing site data removes them.
 
 ## Repository
 
@@ -66,8 +76,8 @@ site data.
   app's schema; preserve unknown fields).
 - Handoff: [AGENTS.md](AGENTS.md) — architecture, decisions, gaps, Drive plan.
 - Plan: [PLAN.md](PLAN.md).
-- Tests: `node --test tests/` (35 tests); manual end-to-end notes in
-  [tests/E2E.md](tests/E2E.md).
+- Tests: `node --test tests/` (44 tests); manual end-to-end notes in
+  [tests/E2E.md](tests/E2E.md). Drive setup: [DRIVE.md](DRIVE.md).
 - The Mac app is public: <https://github.com/somphol/tubeshelf>.
 - The read-only viewer remains at <https://somphol.github.io/tubeshelf-web-ro/>.
 

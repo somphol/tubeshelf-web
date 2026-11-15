@@ -41,6 +41,24 @@ import {
 } from "./shelf.js";
 import { suggestTags } from "./tagger.js";
 import { demoBackup } from "./demo.js";
+import {
+  Drive,
+  DriveError,
+  loadDriveSettings,
+  saveDriveSettings,
+  loadDriveState,
+  saveDriveState,
+  requestToken,
+  revokeToken,
+  pickFromDrive,
+  scopeForMode,
+  backupName,
+  autosaveName,
+  isAutosaveName,
+  retentionVictims,
+  latestFile,
+  stamp,
+} from "./drive.js";
 
 /* ---------- tiny DOM helper ---------- */
 function el(tag, props = {}, ...children) {
@@ -71,7 +89,31 @@ const state = {
   sidebarQuery: "",
   context: null,
   draftAt: null,
+  drive: {
+    settings: loadDriveSettings(),
+    token: null,
+    expiresAt: 0,
+    folderId: loadDriveState().folderId || null,
+    folderName: loadDriveState().folderName || "",
+    lastAutoSaveAt: loadDriveState().lastAutoSaveAt || 0,
+    status: "off",
+    message: "",
+    files: [],
+    intent: "manage",
+    busy: false,
+  },
+  snapshots: { lastAt: 0, revision: -1 },
+  autosaveBusy: false,
 };
+
+const SNAPSHOT_KEY = "tubeshelf-rw-snapshots";
+const SNAPSHOT_KEEP = 24;
+const HOUR = 60 * 60 * 1000;
+
+try {
+  const saved = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "null");
+  if (saved) state.snapshots = { lastAt: saved.lastAt || 0, revision: saved.revision ?? -1 };
+} catch {}
 
 let draftTimer = null;
 
@@ -110,6 +152,28 @@ async function idbPut(key, value) {
     });
   } catch {
     /* IndexedDB can be unavailable in private mode; the app still works. */
+  }
+}
+
+async function idbAll(prefix) {
+  try {
+    const db = await openDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction("kv", "readonly");
+      const store = tx.objectStore("kv");
+      const keysReq = store.getAllKeys();
+      const valuesReq = store.getAll();
+      tx.oncomplete = () => {
+        const out = [];
+        keysReq.result.forEach((key, index) => {
+          if (String(key).startsWith(prefix)) out.push({ key, ...valuesReq.result[index] });
+        });
+        resolve(out);
+      };
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    return [];
   }
 }
 
@@ -210,6 +274,7 @@ function renderAll() {
   renderSidebar();
   renderContent();
   $("#undo").disabled = !canUndo(state.store);
+  updateDriveButton();
   saveView();
 }
 
@@ -229,6 +294,7 @@ function renderMeta() {
   meta.append(el("span", { class: "file-meta", text: parts.join("  ·  ") }));
   if (store.dirty) meta.append(el("span", { class: "edited", text: " · Edited" }));
   setDraftStatus();
+  updateDriveButton();
 }
 
 function renderSidebar() {
@@ -1067,7 +1133,7 @@ function closeModal(selector) {
 
 function closeAll() {
   hideContextMenu();
-  for (const selector of ["#editor-modal", "#add-modal", "#merge-modal"]) {
+  for (const selector of ["#editor-modal", "#add-modal", "#merge-modal", "#drive-modal"]) {
     if (!$(selector).hidden) {
       $(selector).hidden = true;
       return true;
@@ -1093,11 +1159,594 @@ function toast(message) {
   }, 4200);
 }
 
+
+/* ---------- Google Drive + local snapshots ---------- */
+const HOUR_MS = 60 * 60 * 1000;
+
+function configured() {
+  const settings = state.drive.settings;
+  if (!settings.clientId.trim()) return false;
+  if (settings.mode === "picker" && !settings.apiKey.trim()) return false;
+  return true;
+}
+
+function tokenValid() {
+  return Boolean(state.drive.token && state.drive.expiresAt > Date.now() + 60_000);
+}
+
+function connected() {
+  return state.drive.status === "connected" && tokenValid() && Boolean(state.drive.folderId);
+}
+
+function driveClient() {
+  if (!tokenValid()) throw new Error("Google Drive session expired. Connect again.");
+  return new Drive(state.drive.token);
+}
+
+function updateDriveButton() {
+  const button = $("#drive");
+  if (!button) return;
+  if (state.drive.busy || state.drive.status === "connecting") {
+    button.textContent = "Backups…";
+  } else if (connected()) {
+    const time = state.drive.lastAutoSaveAt
+      ? new Date(state.drive.lastAutoSaveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : "on";
+    button.textContent = `Backups · ${time}`;
+  } else if (state.drive.status === "reconnect") {
+    button.textContent = "Backups · reconnect";
+  } else if (state.drive.status === "error") {
+    button.textContent = "Backups · !";
+  } else if (configured()) {
+    button.textContent = "Backups · connect";
+  } else {
+    button.textContent = "Backups";
+  }
+  button.title = state.drive.message || "Google Drive and local snapshots";
+}
+
+function updateLanding() {
+  const isConfigured = configured();
+  const driveStart = $("#drive-start");
+  const choose = $("#choose");
+  const setup = $("#drive-setup");
+  const hint = $("#drive-hint");
+  if (driveStart) driveStart.hidden = !isConfigured;
+  if (choose) {
+    choose.classList.toggle("primary", !isConfigured);
+    choose.textContent = isConfigured ? "From this computer…" : "Choose a backup…";
+  }
+  if (setup) setup.textContent = isConfigured ? "Google Drive settings" : "Set up Google Drive";
+  if (hint) hint.hidden = isConfigured || localStorage.getItem("tubeshelf-rw-drive-hint") === "off";
+}
+
+function openDrivePanel(intent = "manage") {
+  state.drive.intent = intent;
+  renderDriveBody();
+  $("#drive-modal").hidden = false;
+}
+
+function readDriveFields() {
+  const clientId = $("#drive-client");
+  if (!clientId) return state.drive.settings;
+  return {
+    clientId: clientId.value.trim(),
+    apiKey: $("#drive-key").value.trim(),
+    mode: $("#drive-mode").value === "full" ? "full" : "picker",
+    folderName: $("#drive-folder").value.trim() || "TubeShelf Backups",
+    autoSave: $("#drive-auto").checked,
+  };
+}
+
+function persistDriveFields({ rerender = true } = {}) {
+  const previous = state.drive.settings;
+  const next = readDriveFields();
+  saveDriveSettings(next);
+  state.drive.settings = next;
+  if (previous.clientId !== next.clientId
+      || previous.mode !== next.mode
+      || (previous.folderName !== next.folderName && next.mode === "full")) {
+    state.drive.token = null;
+    state.drive.expiresAt = 0;
+    state.drive.folderId = null;
+    state.drive.folderName = "";
+    state.drive.status = "off";
+    saveDriveState({ folderId: null, folderName: "", mode: next.mode });
+  }
+  updateLanding();
+  updateDriveButton();
+  if (rerender) renderDriveBody();
+}
+
+async function connectDrive({ intent = "manage" } = {}) {
+  if (state.drive.busy) return;
+  persistDriveFields({ rerender: false });
+  const settings = state.drive.settings;
+  if (!settings.clientId) {
+    toast("Add the OAuth client ID from Google Cloud first.");
+    return;
+  }
+  if (settings.mode === "picker" && !settings.apiKey) {
+    toast("Picker mode needs the Google API key.");
+    return;
+  }
+
+  state.drive.busy = true;
+  state.drive.status = "connecting";
+  state.drive.message = "";
+  updateDriveButton();
+  renderDriveBody();
+
+  try {
+    const auth = await requestToken(settings.clientId, scopeForMode(settings.mode));
+    state.drive.token = auth.token;
+    state.drive.expiresAt = auth.expiresAt;
+    const client = new Drive(auth.token);
+
+    if (settings.mode === "full") {
+      const folder = await client.ensureFolder(settings.folderName);
+      state.drive.folderId = folder.id;
+      state.drive.folderName = folder.name;
+    } else if (!state.drive.folderId) {
+      const picked = await pickFromDrive({
+        apiKey: settings.apiKey,
+        token: auth.token,
+        kind: "folder",
+      });
+      state.drive.folderId = picked.id;
+      state.drive.folderName = picked.name;
+    }
+
+    state.drive.lastAutoSaveAt = Date.now();
+    saveDriveState({
+      folderId: state.drive.folderId,
+      folderName: state.drive.folderName,
+      lastAutoSaveAt: state.drive.lastAutoSaveAt,
+      mode: settings.mode,
+    });
+    state.drive.status = "connected";
+    state.drive.message = "";
+    await refreshDriveFiles();
+    state.drive.busy = false;
+    updateDriveButton();
+    updateLanding();
+    renderDriveBody();
+    toast("Google Drive connected");
+    if (intent === "open") await openLatestDrive();
+    else if (intent === "save") await saveNowToDrive();
+  } catch (error) {
+    state.drive.busy = false;
+    state.drive.status = "off";
+    state.drive.token = null;
+    state.drive.expiresAt = 0;
+    state.drive.message = error.message || "Could not connect Google Drive.";
+    updateDriveButton();
+    renderDriveBody();
+    toast(state.drive.message);
+  }
+}
+
+function handleDriveError(error) {
+  if (error instanceof DriveError && error.status === 401) {
+    state.drive.status = "reconnect";
+    state.drive.token = null;
+    state.drive.expiresAt = 0;
+    state.drive.message = "Google Drive session expired. Connect again.";
+  } else {
+    state.drive.status = "error";
+    state.drive.message = error.message || "Google Drive request failed.";
+    if (state.drive.settings.mode === "picker") {
+      state.drive.message += " Picker mode may not create files here; try Automatic mode.";
+    }
+  }
+  updateDriveButton();
+}
+
+async function refreshDriveFiles() {
+  if (!tokenValid() || !state.drive.folderId) return [];
+  try {
+    const files = await driveClient().listFolder(state.drive.folderId);
+    state.drive.files = files;
+    state.drive.status = "connected";
+    return files;
+  } catch (error) {
+    handleDriveError(error);
+    throw error;
+  }
+}
+
+async function openLatestDrive() {
+  if (!tokenValid()) {
+    await connectDrive({ intent: "open" });
+    return;
+  }
+  try {
+    const files = await refreshDriveFiles();
+    const latest = latestFile(files.filter((file) => /\.json$/i.test(file.name)));
+    if (!latest) {
+      toast("No backups found in the Drive folder yet.");
+      renderDriveBody();
+      return;
+    }
+    await openDriveFile(latest);
+  } catch (error) {
+    renderDriveBody();
+    toast(error.message);
+  }
+}
+
+async function openDriveFile(file) {
+  if (state.store?.dirty
+      && !confirm("Replace the shelf in this browser with the Drive backup? Unsaved local edits will be replaced.")) {
+    return;
+  }
+  try {
+    const text = await driveClient().download(file.id);
+    loadText(text, file.name);
+    state.drive.lastAutoSaveAt = Date.now();
+    saveDriveState({ lastAutoSaveAt: state.drive.lastAutoSaveAt });
+    state.drive.status = "connected";
+    updateDriveButton();
+    closeModal("#drive-modal");
+    toast(`Opened ${file.name}`);
+  } catch (error) {
+    handleDriveError(error);
+    renderDriveBody();
+    toast(error.message);
+  }
+}
+
+async function saveNowToDrive() {
+  if (!state.store) return;
+  if (!tokenValid()) {
+    await connectDrive({ intent: "save" });
+    return;
+  }
+  try {
+    const name = backupName();
+    await driveClient().upload({
+      name,
+      text: currentBackup(state.store),
+      parents: [state.drive.folderId],
+    });
+    markSaved(state.store);
+    state.drive.lastAutoSaveAt = Date.now();
+    saveDriveState({ lastAutoSaveAt: state.drive.lastAutoSaveAt });
+    state.drive.status = "connected";
+    await refreshDriveFiles();
+    renderMeta();
+    updateDriveButton();
+    renderDriveBody();
+    scheduleDraft();
+    toast(`Saved ${name} to Drive`);
+  } catch (error) {
+    handleDriveError(error);
+    renderDriveBody();
+    toast(error.message);
+  }
+}
+
+async function chooseDriveFolder() {
+  if (!tokenValid()) {
+    await connectDrive({ intent: "manage" });
+    return;
+  }
+  try {
+    const picked = await pickFromDrive({
+      apiKey: state.drive.settings.apiKey,
+      token: state.drive.token,
+      kind: "folder",
+    });
+    state.drive.folderId = picked.id;
+    state.drive.folderName = picked.name;
+    saveDriveState({ folderId: picked.id, folderName: picked.name });
+    await refreshDriveFiles();
+    renderDriveBody();
+    toast(`Using ${picked.name}`);
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function maybeAutoSave() {
+  if (state.autosaveBusy || !state.store) return;
+  const now = Date.now();
+  const settings = state.drive.settings;
+  const dirty = state.store.dirty;
+  if (!dirty) return;
+
+  const driveReady = settings.autoSave && tokenValid() && Boolean(state.drive.folderId);
+  if (driveReady) {
+    if (now - (state.drive.lastAutoSaveAt || 0) < HOUR_MS) return;
+    state.autosaveBusy = true;
+    try {
+      const name = autosaveName();
+      await driveClient().upload({
+        name,
+        text: currentBackup(state.store),
+        parents: [state.drive.folderId],
+      });
+      markSaved(state.store);
+      state.drive.lastAutoSaveAt = Date.now();
+      saveDriveState({ lastAutoSaveAt: state.drive.lastAutoSaveAt });
+      state.drive.status = "connected";
+      try {
+        const files = await driveClient().listFolder(state.drive.folderId);
+        state.drive.files = files;
+        const victims = retentionVictims(files, 24);
+        for (const file of victims) {
+          try { await driveClient().delete(file.id); } catch {}
+        }
+      } catch {}
+      renderMeta();
+      updateDriveButton();
+      renderDriveBody();
+      scheduleDraft();
+      toast("Drive autosaved (hourly, changes only)");
+    } catch (error) {
+      handleDriveError(error);
+      renderDriveBody();
+      // Fall through to the local snapshot after a failed cloud save.
+    } finally {
+      state.autosaveBusy = false;
+    }
+    if (state.drive.status === "connected") return;
+  }
+
+  if (now - state.snapshots.lastAt < HOUR_MS) return;
+  if (state.snapshots.revision === state.store.revision) return;
+  await writeLocalSnapshot();
+}
+
+async function writeLocalSnapshot({ force = false } = {}) {
+  if (!state.store) return;
+  if (!force && !state.store.dirty) return;
+  const now = new Date();
+  const name = `TubeShelf Autosave (Local) ${stamp(now)}.json`;
+  const key = `snap:${now.toISOString()}`;
+  await idbPut(key, {
+    text: currentBackup(state.store),
+    fileName: state.store.fileName,
+    name,
+    savedAt: now.toISOString(),
+  });
+  state.snapshots = { lastAt: now.getTime(), revision: state.store.revision };
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(state.snapshots));
+  } catch {}
+  await pruneLocalSnapshots();
+  toast("Local snapshot saved");
+  if (!$("#drive-modal").hidden) renderDriveBody();
+}
+
+async function localSnapshots() {
+  const all = await idbAll("snap:");
+  return all.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+}
+
+async function pruneLocalSnapshots() {
+  const all = await localSnapshots();
+  for (const snapshot of all.slice(24)) {
+    await idbDelete(snapshot.key);
+  }
+}
+
+function downloadText(text, name) {
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = el("a", { href: url, download: name });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+async function renderLocalSnapshots(container) {
+  const snaps = await localSnapshots();
+  container.replaceChildren();
+  if (!snaps.length) {
+    container.append(el("div", { class: "drive-hint", text: "No local snapshots yet. One is written hourly when Drive is unavailable and only if the shelf changed." }));
+    return;
+  }
+  for (const snapshot of snaps) {
+    container.append(el("div", { class: "drive-row" },
+      el("span", { class: "name", text: snapshot.name }),
+      el("span", { class: "when", text: new Date(snapshot.savedAt).toLocaleString() }),
+      el("button", {
+        class: "button",
+        onclick: () => {
+          if (state.store?.dirty && !confirm("Replace the current shelf with this local snapshot?")) return;
+          loadText(snapshot.text, snapshot.fileName || snapshot.name, { draft: true, dirty: true });
+          closeModal("#drive-modal");
+          toast("Local snapshot restored");
+        },
+      }, "Open"),
+      el("button", {
+        class: "button",
+        onclick: () => downloadText(snapshot.text, snapshot.name),
+      }, "Download"),
+      el("button", {
+        class: "button danger",
+        onclick: async () => {
+          await idbDelete(snapshot.key);
+          renderDriveBody();
+        },
+      }, "Delete")
+    ));
+  }
+}
+
+function renderDriveBody() {
+  const body = $("#drive-body");
+  if (!body) return;
+  const settings = state.drive.settings;
+  const isConnected = connected();
+  body.replaceChildren();
+
+  const dotClass = isConnected ? "on" : ["reconnect", "error"].includes(state.drive.status) ? "warn" : "";
+  body.append(el("div", { class: "drive-status" },
+    el("span", { class: `drive-dot ${dotClass}` }),
+    el("strong", {
+      text: isConnected
+        ? `Connected${state.drive.folderName ? ` · ${state.drive.folderName}` : ""}`
+        : state.drive.busy ? "Connecting…" : configured() ? "Not connected" : "Not set up",
+    }),
+    state.drive.message ? el("span", { class: "drive-hint", text: state.drive.message }) : null
+  ));
+
+  if (!configured()) {
+    body.append(el("div", { class: "drive-hint" },
+      "Google Drive is optional. It lets this page open the newest backup and save edits back to the same folder, so the Mac sees them through Drive for Desktop. Local backups always remain available."
+    ));
+    body.append(el("ol", { class: "drive-hint", style: "margin:0;padding-left:18px" },
+      el("li", {}, "Create a Google Cloud project and enable the Drive API."),
+      el("li", {}, "Set the OAuth consent screen to External, add yourself as a test user, and add the scopes drive.file (and drive for Automatic)."),
+      el("li", {}, `Create a Web OAuth client with this origin: ${location.origin}`),
+      el("li", {}, "Create an API key for the Picker (Picker mode only)."),
+      el("li", {}, "Paste both values below and press Connect.")
+    ));
+    body.append(el("div", { class: "drive-actions" },
+      el("a", { class: "button", href: "https://github.com/somphol/tubeshelf-web-rw/blob/main/DRIVE.md", target: "_blank", rel: "noreferrer noopener", text: "Open the setup guide" }),
+      el("a", { class: "button", href: "https://console.cloud.google.com/apis/credentials", target: "_blank", rel: "noreferrer noopener", text: "Google Cloud credentials" })
+    ));
+  }
+
+  const grid = el("div", { class: "drive-grid" });
+  grid.append(
+    el("div", { class: "field wide" },
+      el("label", { text: "OAuth client ID" }),
+      el("input", { id: "drive-client", type: "text", value: settings.clientId, placeholder: "…apps.googleusercontent.com" })
+    ),
+    el("div", { class: "field wide" },
+      el("label", { text: "API key (Picker mode)" }),
+      el("input", { id: "drive-key", type: "text", value: settings.apiKey, placeholder: "Google API key" })
+    ),
+    el("div", { class: "field" },
+      el("label", { text: "Access" }),
+      el("select", { id: "drive-mode" },
+        el("option", { value: "picker", selected: settings.mode === "picker", text: "Pick a folder (least access)" }),
+        el("option", { value: "full", selected: settings.mode === "full", text: "Automatic (full Drive)" })
+      )
+    ),
+    el("div", { class: "field" },
+      el("label", { text: "Folder name" }),
+      el("input", { id: "drive-folder", type: "text", value: settings.folderName })
+    ),
+    el("label", { class: "drive-hint wide", style: "display:flex;gap:7px;align-items:center" },
+      el("input", { id: "drive-auto", type: "checkbox", checked: settings.autoSave }),
+      "Hourly Drive autosave when changes exist (timestamped; newest 24 kept)"
+    )
+  );
+  body.append(grid);
+  body.append(el("div", { class: "drive-hint" },
+    `Authorized origin: ${location.origin} `,
+    el("button", {
+      class: "link",
+      onclick: () => navigator.clipboard?.writeText(location.origin),
+    }, "Copy"),
+    ` · Automatic is the reliable mode for backups the Mac created; it asks for full Drive access so it can find and create “${settings.folderName}”. Picker mode touches only what you choose.`
+  ));
+  body.append(el("div", { class: "drive-actions" },
+    el("button", { class: "button", id: "drive-save-settings", onclick: () => persistDriveFields() }, "Save settings"),
+    el("button", {
+      class: "button primary",
+      id: "drive-connect",
+      disabled: state.drive.busy || !settings.clientId,
+      onclick: () => connectDrive({ intent: state.drive.intent }),
+    }, isConnected ? "Reconnect" : "Connect Google Drive"),
+    isConnected ? el("button", {
+      class: "button",
+      onclick: async () => {
+        await revokeToken(state.drive.token);
+        state.drive.token = null;
+        state.drive.expiresAt = 0;
+        state.drive.status = "off";
+        updateDriveButton();
+        renderDriveBody();
+      },
+    }, "Disconnect") : null,
+    settings.mode === "picker" && isConnected ? el("button", {
+      class: "button",
+      onclick: chooseDriveFolder,
+    }, "Choose folder…") : null,
+    isConnected ? el("button", { class: "button", id: "drive-open-latest", onclick: openLatestDrive }, "Open latest") : null,
+    isConnected && state.store ? el("button", { class: "button primary", id: "drive-save-now", onclick: saveNowToDrive }, "Save now") : null,
+    state.store ? el("button", {
+      class: "button",
+      id: "drive-snapshot-now",
+      onclick: () => writeLocalSnapshot({ force: true }),
+    }, "Snapshot now") : null,
+    el("button", {
+      class: "button",
+      onclick: () => {
+        closeModal("#drive-modal");
+        $("#file").click();
+      },
+    }, "From this computer…")
+  ));
+
+  if (isConnected && state.drive.files.length) {
+    body.append(el("div", { class: "field-label", text: "Recent Drive backups" }));
+    const list = el("div", { class: "drive-list" });
+    for (const file of state.drive.files.slice(0, 8)) {
+      list.append(el("div", { class: "drive-row" },
+        el("span", { class: "name", text: file.name }),
+        el("span", { class: "when", text: new Date(file.modifiedTime).toLocaleString() }),
+        el("button", { class: "button", onclick: () => openDriveFile(file) }, "Open")
+      ));
+    }
+    body.append(list);
+  }
+
+  body.append(el("div", { class: "field-label", text: "Local snapshots" }));
+  const snapshots = el("div", { class: "drive-list" });
+  body.append(snapshots);
+  renderLocalSnapshots(snapshots);
+
+  body.append(el("div", { class: "drive-hint" },
+    "Retention: local snapshots keep the newest 24. Drive autosaves keep the newest 24 per app; manual saves are never deleted. Hourly writes happen only when the shelf changed. ",
+    el("a", {
+      href: "https://github.com/somphol/tubeshelf-web-rw/blob/main/DRIVE.md",
+      target: "_blank",
+      rel: "noreferrer noopener",
+      text: "Setup and troubleshooting",
+    })
+  ));
+}
+
+async function startDriveOpen() {
+  if (!configured()) {
+    openDrivePanel("setup");
+    return;
+  }
+  openDrivePanel("open");
+  if (tokenValid()) {
+    await openLatestDrive();
+  } else {
+    await connectDrive({ intent: "open" });
+  }
+}
+
 /* ---------- events ---------- */
-$("#open").addEventListener("click", () => $("#file").click());
+$("#open").addEventListener("click", () => {
+  if (configured()) {
+    openDrivePanel("open");
+  } else {
+    $("#file").click();
+  }
+});
 $("#choose").addEventListener("click", () => $("#file").click());
 $("#demo").addEventListener("click", loadDemo);
 $("#add").addEventListener("click", openAdd);
+$("#drive").addEventListener("click", () => openDrivePanel("manage"));
+$("#drive-start").addEventListener("click", startDriveOpen);
+$("#drive-setup").addEventListener("click", () => openDrivePanel("setup"));
+$("#drive-hint-setup").addEventListener("click", () => openDrivePanel("setup"));
+$("#drive-hint-off").addEventListener("click", () => {
+  localStorage.setItem("tubeshelf-rw-drive-hint", "off");
+  $("#drive-hint").hidden = true;
+});
+$("#drive-close").addEventListener("click", () => closeModal("#drive-modal"));
 $("#undo").addEventListener("click", undoLast);
 $("#export").addEventListener("click", exportBackup);
 $("#file").addEventListener("change", (event) => {
@@ -1110,7 +1759,7 @@ $("#editor-close").addEventListener("click", () => closeModal("#editor-modal"));
 $("#add-close").addEventListener("click", () => closeModal("#add-modal"));
 $("#merge-close").addEventListener("click", () => closeModal("#merge-modal"));
 
-for (const selector of ["#editor-modal", "#add-modal", "#merge-modal"]) {
+for (const selector of ["#editor-modal", "#add-modal", "#merge-modal", "#drive-modal"]) {
   $(selector).addEventListener("click", (event) => {
     if (event.target === $(selector)) $(selector).hidden = true;
   });
@@ -1220,6 +1869,16 @@ function showLanding() {
 
 /* ---------- boot / draft ---------- */
 (async () => {
+  updateLanding();
+  updateDriveButton();
+  setInterval(() => {
+    if (state.drive.status === "connected" && !tokenValid()) {
+      state.drive.status = "reconnect";
+      updateDriveButton();
+    }
+    maybeAutoSave();
+  }, 60_000);
+
   const draft = await idbGet("draft");
   if (!draft?.text) return;
 
@@ -1231,6 +1890,8 @@ function showLanding() {
   $("#draft-restore").onclick = () => {
     $("#draft-banner").hidden = true;
   };
+  updateLanding();
+  updateDriveButton();
   $("#draft-discard").textContent = "Forget";
   $("#draft-discard").onclick = async () => {
     await clearDraft();

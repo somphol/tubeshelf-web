@@ -16,7 +16,7 @@ No accounts required for the core loop.
 - IndexedDB draft and timestamped export.
 - Tests and a manual end-to-end pass.
 
-## Phase 2 — Google Drive (next)
+## Phase 2 — Google Drive (implemented; live OAuth verification pending)
 
 ### Permission model
 
@@ -37,15 +37,19 @@ No accounts required for the core loop.
    Google Picker API.
 5. Put the public client ID and API key in a config file or Settings form.
 
-### Save behaviour
+### Save behaviour (implemented)
 
-- Manual **Save** writes a new timestamped `TubeShelf YYYY-MM-DD HH.MM.SS.json`.
+- Manual **Save now** writes a new timestamped `TubeShelf YYYY-MM-DD HH.MM.SS.json`.
 - Never overwrite a morning file.
 - Autosave writes at most **once per hour**, only when the document revision
   changed since the last autosave, to
   `TubeShelf Autosave (Web) YYYY-MM-DD HH.MM.SS.json`.
 - Retain the newest 24 web autosaves; delete older `Autosave (Web)` files only.
 - The Mac writes its own `TubeShelf Autosave (Mac) …` files; never delete those.
+- **Local fallback:** when Drive is unavailable, disconnected, expired, or its
+  autosave is off, the same hourly/change-only rule writes an IndexedDB
+  `Autosave (Local)` snapshot; keep 24; the Backups panel can open, download,
+  delete or create one now.
 
 ### Conflict handling
 
@@ -60,6 +64,16 @@ No accounts required for the core loop.
 uncertain part. Validate with a real account before building the editor around
 it. If it fails, Picker mode updates the picked file in place and full scope
 handles folder creation.
+
+## Startup and fallback (implemented)
+
+- If an OAuth client is configured, the landing leads with **Open from Google
+  Drive**; **From this computer…** remains beside it.
+- If not configured, the local chooser is primary and a visible Google Drive
+  suggestion card explains the optional setup.
+- A local session copy always auto-restores on reload; the banner offers Keep or
+  Forget.
+- Tokens are memory-only; a reconnect is required after expiry.
 
 ## Phase 3 — courses and scale
 

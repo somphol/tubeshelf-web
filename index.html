@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https://i.ytimg.com data:; connect-src https://www.youtube.com https://www.youtube-nocookie.com; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+        content="default-src 'none'; script-src 'self' https://accounts.google.com https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src https://i.ytimg.com data:; connect-src https://www.youtube.com https://www.youtube-nocookie.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://content.googleapis.com; frame-src https://accounts.google.com https://docs.google.com https://content.googleapis.com; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>TubeShelf — editable</title>
   <link rel="stylesheet" href="styles.css">
@@ -19,6 +19,7 @@
     <div class="file-meta" id="file-meta"></div>
     <div class="topbar-actions">
       <button class="button" id="open">Open…</button>
+      <button class="button" id="drive">Backups</button>
       <button class="button" id="add" disabled>Add video</button>
       <button class="button" id="undo" disabled title="Undo (⌘Z)">Undo</button>
       <button class="button primary" id="export" disabled title="Export backup (⌘S)">Export backup</button>
@@ -50,10 +51,24 @@
         It is parsed in this browser; edits stay here until you export a backup.
       </p>
       <div class="landing-actions">
+        <button class="button primary" id="drive-start" hidden>Open from Google Drive</button>
         <button class="button primary" id="choose">Choose a backup…</button>
         <button class="link" id="demo">Open the demo shelf</button>
       </div>
-      <p class="fine">No account. No upload. The demo contains public YouTube links only.</p>
+      <p class="fine">
+        <button class="link" id="drive-setup">Set up Google Drive</button>
+        · No upload unless you connect Drive. The demo contains public links only.
+      </p>
+      <div id="drive-hint" class="drive-hint-card">
+        <div>
+          <strong>Google Drive is supported</strong>
+          <p>Open the newest backup from Drive and save edits back to <code>TubeShelf Backups</code> — no download, no upload. Optional; local files always work.</p>
+        </div>
+        <div class="drive-actions">
+          <button class="button primary" id="drive-hint-setup">Set it up</button>
+          <button class="link" id="drive-hint-off">Not now</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -78,6 +93,16 @@
         <button class="icon-button" id="add-close" title="Close (esc)">✕</button>
       </div>
       <div id="add-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="drive-modal" class="modal" hidden>
+    <div class="modal-panel drive-panel" role="dialog" aria-modal="true" aria-label="Google Drive">
+      <div class="modal-head">
+        <h2>Google Drive</h2>
+        <button class="icon-button" id="drive-close" title="Close (esc)">✕</button>
+      </div>
+      <div id="drive-body" class="modal-body"></div>
     </div>
   </div>
 

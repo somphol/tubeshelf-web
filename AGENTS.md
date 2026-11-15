@@ -20,16 +20,21 @@ Implemented and manually verified on 2026-11-15:
 - Video editor: categories + suggestions, note, favorite, watched, remove.
 - Add by URL via YouTube oEmbed, duplicate guard.
 - Category pin/rename/merge/delete; channel pins.
-- IndexedDB draft with restore banner; timestamped export download.
-- 35 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
+- IndexedDB local copy with automatic restore; timestamped export download.
+- Google Drive: OAuth (Picker/`drive.file` or full `drive`), folder listing,
+  open-latest, manual timestamped save, hourly change-only autosave, retention 24.
+- Local snapshots when Drive is unavailable: hourly, change-only, newest 24,
+  open/download/delete, Snapshot now.
+- Drive-first landing when configured; local file always beside it.
+- 44 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
 
-Not implemented: Google Drive sync/autosave, course editing, bulk selection,
-in-place file save, redo UI, AI tagging.
+Not implemented: live OAuth verification (no credentials in the repo), course
+editing, bulk selection, in-place file save, redo UI, AI tagging.
 
 ## Commands
 
 ```bash
-node --test tests/                 # unit tests, no install
+node --test tests/                 # 44 unit tests, no install
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 python3 scripts/sync-taxonomy.py   # regenerate taxonomy from ../tubeshelf
@@ -46,6 +51,9 @@ reason; the value is that the whole app is auditable in one sitting.
 - `src/store.js` — raw document state, mutations, canonical tags, pins, category
   rename/merge/delete, undo/redo, counts. Every mutation bumps `revision` and
   `dirty`; unknown JSON fields survive.
+- `src/drive.js` — Google OAuth/Picker helpers and Drive REST transport. Pure
+  helpers (names, retention, multipart) are unit-tested; the OAuth round-trip is
+  not.
 - `src/tagger.js` — deterministic port of `HeuristicTagger`, `GuestNameExtractor`
   and `FormatTagger`. No network.
 - `src/taxonomy.js` / `.json` — generated from the Mac's `TagTaxonomy.swift`.
@@ -59,6 +67,25 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
 
 ## Decisions and constraints
 
+- **Drive is optional and never required.** When configured, the landing starts
+  with **Open from Google Drive**; **From this computer…** is always beside it. A
+  local copy/snapshot path works with no Google account. The app ships no OAuth
+  credentials; each user creates a client. Setup lives in [DRIVE.md](DRIVE.md).
+- **Two Drive modes, explicit scope.** Picker + `drive.file` is least access;
+  Automatic uses full `drive` to find/create `TubeShelf Backups`. The token is
+  memory-only with a ~1h lifetime; no refresh token or backend. Changing mode or
+  client ID clears the token and folder. `drive.file` folder creation is the
+  known risk; errors point at Automatic.
+- **Autosave is hourly and change-only.** A 60s tick writes at most once per hour,
+  only when the shelf is dirty, to a timestamped `Autosave (Web)` file. Retention
+  deletes web autosaves beyond 24; manual backups and Mac autosaves are never
+  touched. Manual **Save now** also writes a timestamped file. The Mac's matching
+  autosave plan is in its `AGENTS.md`.
+- **Local fallback snapshots are separate from Drive.** If Drive is unavailable
+  or the token expired, the same hourly/change-only check writes an IndexedDB
+  snapshot named `Autosave (Local)`; keep 24; the Backups panel lists them with
+  Open/Download/Delete. **Snapshot now** forces one. The continuous local copy
+  (one slot) still restores the last session on load.
 - **The Mac app owns the format.** `parseBackup` keeps the raw library, videos and
   playlists; edits patch known fields only. `buildBackup` spreads the original
   envelope/library so future fields survive. Never normalise into a new object and
@@ -121,6 +148,18 @@ Read [PLAN.md](PLAN.md) for the full design. Summary:
 
 ## Known issues
 
+- **Live Drive OAuth is not verified in this repo.** There are no credentials, so
+  only the transport is unit-tested. Verify with a real Google Cloud project using
+  [DRIVE.md](DRIVE.md) before relying on it.
+- **Picker folder creation is uncertain.** `drive.file` may refuse to create a new
+  file in a picked folder. The UI reports it and suggests Automatic; the in-place
+  fallback is not implemented.
+- Access tokens last about an hour. Autosave falls back to local snapshots and the
+  button says reconnect; there is no silent refresh.
+- Full scope consent is broad and, in testing mode, limited to listed test users.
+  Do not request verification for a personal tool.
+- Local snapshots contain full backups and can be a few MB each; 24 of them use
+  browser quota. Export for durable storage.
 - Courses are counted but not shown or editable; a course-only category opens an
   empty video grid.
 - No bulk selection, no redo button, no file picker “save”.
