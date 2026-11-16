@@ -404,8 +404,12 @@ function applyMergedShelf(shelf, name, stats = {}) {
   renderAll();
   scheduleDraft();
   const conflicts = stats.conflicts || 0;
+  const changes = (stats.added || 0) + (stats.updated || 0) + (stats.deleted || 0);
+  const lead = changes
+    ? `Merged ${changes} backup change${changes === 1 ? "" : "s"} from ${name}`
+    : `Merged ${name}`;
   toast(
-    `Merged changes from ${name}${conflicts
+    `${lead}${conflicts
       ? ` · ${conflicts} conflict${conflicts === 1 ? "" : "s"} resolved`
       : ""}`
   );
