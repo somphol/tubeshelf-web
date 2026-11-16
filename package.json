@@ -9,7 +9,8 @@
     "test:e2e:graph": "node tests/graph-e2e.js",
     "test:e2e:folder": "node tests/folder-e2e.js",
     "test:e2e:deck": "node tests/deck-e2e.js",
-    "test:e2e:merge": "node tests/merge-e2e.js"
+    "test:e2e:merge": "node tests/merge-e2e.js",
+    "test:e2e:clipboard": "node tests/clipboard-e2e.js"
   },
   "devDependencies": {
     "puppeteer-core": "^24.0.0"

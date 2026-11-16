@@ -36,6 +36,15 @@ favorite-only change, resolves the conflict, checks the merge is one undo step,
 reloads to prove the base survived the draft, confirms a non-conflicting backup
 applies without a modal, and checks the panel at 390 px.
 
+For clipboard autofill (stubbed clipboard and oEmbed):
+
+```bash
+npm run test:e2e:clipboard
+```
+
+It opens **Add video** with a YouTube URL on the fake clipboard, asserts the URL
+field fills, and checks the title and channel resolve without a network call.
+
 For the slide deck (including card click and right-click):
 
 ```bash

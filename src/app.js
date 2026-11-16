@@ -4,6 +4,7 @@ import {
   thumbnailCandidates,
   formatDuration,
   watchURL,
+  youtubeIDFromText,
   suggestedFileName,
   profileNameFromFile,
 } from "./format.js";
@@ -1612,47 +1613,82 @@ function openAdd() {
       : "";
   }
 
-  const fetchButton = el("button", {
-    class: "button",
-    onclick: async () => {
-      const match = urlInput.value.trim().match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})/);
-      if (!match) {
-        toast("Paste a YouTube link with an 11-character video ID.");
-        return;
-      }
-      working.id = match[1];
-      if (hasDuplicate(state.store, working.id)) {
-        toast("That video is already on the shelf.");
-      }
+  let fetchButton = null;
+
+  async function resolve() {
+    if (working.fetching) return;
+    const id = youtubeIDFromText(urlInput.value);
+    if (!id) {
+      toast("Paste a YouTube link with an 11-character video ID.");
+      return;
+    }
+    working.id = id;
+    if (hasDuplicate(state.store, working.id)) {
+      toast("That video is already on the shelf.");
+    }
+    working.fetching = true;
+    if (fetchButton) {
       fetchButton.disabled = true;
       fetchButton.textContent = "Fetching…";
-      try {
-        const response = await fetch(
-          `https://www.youtube.com/oembed?url=${encodeURIComponent(watchURL(working.id))}&format=json`
-        );
-        if (!response.ok) throw new Error(`YouTube answered ${response.status}`);
-        const data = await response.json();
-        working.title = data.title || working.title;
-        working.channel = data.author_name || working.channel;
-        titleInput.value = working.title;
-        channelInput.value = working.channel;
-        suggest();
-        paintPreview();
-        toast("Details loaded");
-      } catch (error) {
-        toast(`Could not load details: ${error.message}. You can type them.`);
-        paintPreview();
-      } finally {
+    }
+    try {
+      const response = await fetch(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent(watchURL(working.id))}&format=json`
+      );
+      if (!response.ok) throw new Error(`YouTube answered ${response.status}`);
+      const data = await response.json();
+      working.title = data.title || working.title;
+      working.channel = data.author_name || working.channel;
+      titleInput.value = working.title;
+      channelInput.value = working.channel;
+      suggest();
+      paintPreview();
+      toast("Details loaded");
+    } catch (error) {
+      toast(`Could not load details: ${error.message}. You can type them.`);
+      paintPreview();
+    } finally {
+      working.fetching = false;
+      if (fetchButton) {
         fetchButton.disabled = false;
         fetchButton.textContent = "Fetch details";
       }
+    }
+  }
+
+  async function fillUrlFromClipboard({ force = false, fetchDetails = true } = {}) {
+    if (!force && urlInput.value.trim()) return false;
+    let text = "";
+    try {
+      text = (await navigator.clipboard?.readText?.())?.trim() || "";
+    } catch {
+      return false;
+    }
+    const id = youtubeIDFromText(text);
+    if (!id) return false;
+    if ($("#add-modal").hidden) return false;
+    if (!force && urlInput.value.trim()) return false;
+    urlInput.value = /^https?:\/\//i.test(text) ? text : watchURL(id);
+    if (fetchDetails) await resolve();
+    return true;
+  }
+
+  fetchButton = el("button", { class: "button", onclick: resolve }, "Fetch details");
+  const pasteButton = el("button", {
+    class: "button",
+    title: "Read a YouTube link from the clipboard",
+    onclick: async () => {
+      if (!(await fillUrlFromClipboard({ force: true, fetchDetails: true }))) {
+        toast("No YouTube link on the clipboard, or clipboard access is blocked.");
+      }
     },
-  }, "Fetch details");
+  }, "Paste");
 
   body.append(
     el("div", { class: "field" },
       el("label", { text: "YouTube link" }),
-      el("div", { class: "tag-entry" }, urlInput, fetchButton)
+      el("div", { class: "tag-entry url-entry" }, urlInput, pasteButton, fetchButton),
+      el("div", { class: "tag-hint", text: "Copy a YouTube link; this sheet fills it automatically, or press Paste." })
     ),
     preview,
     el("div", { class: "field" },
@@ -1739,6 +1775,7 @@ function openAdd() {
   paintPreview();
   $("#add-modal").hidden = false;
   urlInput.focus();
+  fillUrlFromClipboard();
 }
 
 

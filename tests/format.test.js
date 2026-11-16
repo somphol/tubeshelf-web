@@ -7,6 +7,7 @@ import {
   sanitizeProfileName,
   suggestedFileName,
   thumbnailCandidates,
+  youtubeIDFromText,
 } from "../src/format.js";
 
 const envelope = {
@@ -165,4 +166,15 @@ test("backup filenames carry a sanitized profile name", () => {
   assert.equal(profileNameFromFile("demo-shelf.json"), "");
   assert.equal(sanitizeProfileName('A/B:C*?"<>|'), "A - B - C");
   assert.equal(sanitizeProfileName("   "), "");
+});
+
+test("YouTube IDs come from watch, short, embed, live or bare text", () => {
+  const id = "dQw4w9WgXcQ";
+  assert.equal(youtubeIDFromText(`https://www.youtube.com/watch?v=${id}`), id);
+  assert.equal(youtubeIDFromText(`https://youtu.be/${id}?si=abc`), id);
+  assert.equal(youtubeIDFromText(`https://www.youtube.com/shorts/${id}`), id);
+  assert.equal(youtubeIDFromText(`https://www.youtube.com/embed/${id}`), id);
+  assert.equal(youtubeIDFromText(`https://www.youtube.com/live/${id}`), id);
+  assert.equal(youtubeIDFromText(id), id);
+  assert.equal(youtubeIDFromText("https://example.com/video"), "");
 });

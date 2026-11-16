@@ -177,6 +177,14 @@ export function watchURL(videoID) {
   return `https://www.youtube.com/watch?v=${videoID}`;
 }
 
+/** Extract a YouTube ID from a watch/shorts/embed/live URL or a bare ID. */
+export function youtubeIDFromText(text = "") {
+  const raw = String(text || "").trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
+  const match = raw.match(/(?:[?&]v=|youtu\.be\/|shorts\/|embed\/|live\/)([A-Za-z0-9_-]{11})/);
+  return match ? match[1] : "";
+}
+
 export function playlistURL(playlistID) {
   return `https://www.youtube.com/playlist?list=${playlistID}`;
 }

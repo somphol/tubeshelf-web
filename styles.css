@@ -828,3 +828,9 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
   border-radius: 11px;
 }
 .folder-section .drive-actions { margin-top: 2px; }
+
+@media (max-width: 600px) {
+  .url-entry { flex-wrap: wrap; }
+  .url-entry input { flex: 1 1 100%; }
+  .url-entry .button { flex: 1; }
+}

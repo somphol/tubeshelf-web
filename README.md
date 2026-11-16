@@ -36,8 +36,10 @@ start editing.
 - Edit a video: categories (with suggestions), note, favorite, watched, remove.
   Existing categories are shown as chips and in the type-ahead; suggestions learn
   keywords from the titles you already filed under your own categories.
-- Add a video by URL: title and channel come from YouTube oEmbed; thumbnail and
-  suggestions follow. Duplicate IDs are refused.
+- Add a video by URL: opening the sheet reads a YouTube link from the clipboard
+  when the browser allows it, then fills the title and channel from oEmbed and
+  suggests categories. **Paste** retries explicitly; typing always works.
+  Duplicate IDs are refused.
 - Adding a new video with **no category** asks for confirmation; it is never
   silently filed as Unsorted.
 - Category actions: pin/unpin, rename, merge into another category, delete.
