@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://somphol.github.io/tubeshelf-web-ro/format.schema.json",
+  "$id": "https://somphol.github.io/tubeshelf-web/format.schema.json",
   "title": "TubeShelf backup (viewer contract)",
   "description": "What the web viewer accepts. The Mac app owns the format; fields are additive and the version stays 1 while older readers can ignore what they do not know.",
   "oneOf": [

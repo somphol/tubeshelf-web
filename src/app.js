@@ -1780,7 +1780,7 @@ function folderSection() {
         el("button", { class: "button primary", id: "folder-choose", onclick: chooseFolder }, "Choose Google Drive folder…"),
         el("a", {
           class: "button",
-          href: "https://github.com/somphol/tubeshelf-web-rw/blob/main/DRIVE.md#google-drive-for-desktop-no-oauth",
+          href: "https://github.com/somphol/tubeshelf-web/blob/main/DRIVE.md#google-drive-for-desktop-no-oauth",
           target: "_blank",
           rel: "noreferrer noopener",
           text: "Setup guide",
@@ -2327,7 +2327,7 @@ function renderDriveBody() {
       el("li", {}, "Paste both values below, choose Automatic to share the Mac's folder, and press Connect.")
     ));
     body.append(el("div", { class: "drive-actions" },
-      el("a", { class: "button", href: "https://github.com/somphol/tubeshelf-web-rw/blob/main/DRIVE.md", target: "_blank", rel: "noreferrer noopener", text: "Open the setup guide" }),
+      el("a", { class: "button", href: "https://github.com/somphol/tubeshelf-web/blob/main/DRIVE.md", target: "_blank", rel: "noreferrer noopener", text: "Open the setup guide" }),
       el("a", { class: "button", href: "https://console.cloud.google.com/apis/credentials", target: "_blank", rel: "noreferrer noopener", text: "Google Cloud credentials" })
     ));
   }
@@ -2446,7 +2446,7 @@ function renderDriveBody() {
   body.append(el("div", { class: "drive-hint" },
     "Retention: local snapshots keep the newest 24. Drive autosaves keep the newest 24 per app; manual saves are never deleted. Hourly writes happen only when the shelf changed. ",
     el("a", {
-      href: "https://github.com/somphol/tubeshelf-web-rw/blob/main/DRIVE.md",
+      href: "https://github.com/somphol/tubeshelf-web/blob/main/DRIVE.md",
       target: "_blank",
       rel: "noreferrer noopener",
       text: "Setup and troubleshooting",

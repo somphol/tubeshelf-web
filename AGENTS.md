@@ -237,12 +237,11 @@ Read [PLAN.md](PLAN.md) for the full design. Summary:
 
 ## Continuity
 
-- Repository: <https://github.com/somphol/tubeshelf-web-rw> (public, Pages from
-  `main`). Live: <https://somphol.github.io/tubeshelf-web-rw/>.
+- Repository: <https://github.com/somphol/tubeshelf-web> (public, Pages from
+  `main`). Live: <https://somphol.github.io/tubeshelf-web/>.
 - Mac app: <https://github.com/somphol/tubeshelf> (public; unsigned arm64 release,
   MIT, see its `DISCLAIMER.md`).
-- Read-only viewer: <https://somphol.github.io/tubeshelf-web-ro/>.
-- Local checkout: `/Users/somphol/Projects/tubeshelf-web-rw` — the remote is the
+- Local checkout: `/Users/somphol/Projects/tubeshelf-web` — the remote is the
   master copy; do not leave work only on this disk.
 - Data: none in the repo. Real backups stay on the user's disk or Drive.
 - Deploy: push to `main`; GitHub Pages serves the repo root. No workflow file.

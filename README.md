@@ -94,7 +94,6 @@ and snapshots; clearing site data removes them.
   (WebGL + labels).
   Notes in [tests/E2E.md](tests/E2E.md). Drive setup: [DRIVE.md](DRIVE.md).
 - The Mac app is public: <https://github.com/somphol/tubeshelf>.
-- The read-only viewer remains at <https://somphol.github.io/tubeshelf-web-ro/>.
 
 ## License
 
