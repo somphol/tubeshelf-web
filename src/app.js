@@ -433,7 +433,7 @@ function conflictValueLabel(key, value) {
   return String(value ?? "");
 }
 
-function choiceOption(key, value, choice, label, group, field) {
+function choiceOption(key, value, choice, label, field) {
   const input = el("input", {
     type: "radio",
     name: key,
@@ -462,11 +462,11 @@ function fieldChoiceRow(group, field) {
     el("div", { class: "reconcile-row-label", text: field.label })
   );
   row.append(
-    choiceOption(key, chosen, "mine", "This browser", group, field),
-    choiceOption(key, chosen, "theirs", "Backup", group, field)
+    choiceOption(key, chosen, "mine", "This browser", field),
+    choiceOption(key, chosen, "theirs", "Backup", field)
   );
   if (field.allowBoth) {
-    row.append(choiceOption(key, chosen, "both", "Both", group, field));
+    row.append(choiceOption(key, chosen, "both", "Both", field));
   }
   return row;
 }

@@ -70,6 +70,8 @@ start editing.
 - Live OAuth verification: the client ships without credentials; each user creates
   one. The transport is unit-tested, the real round-trip is not.
 - In-place file saving; export downloads a new backup.
+- Course conflicts are resolved as whole courses; chapters are not merged field
+  by field. Local hourly snapshots still use the replace confirmation.
 - Multiple shelves cached at once: the local copy is a single slot.
 - Description and duration for new videos: the watch page is CORS-blocked, so only
   oEmbed title/channel are fetched. Duration stays empty until the Mac sees it.
