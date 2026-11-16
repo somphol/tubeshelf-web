@@ -152,6 +152,10 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   playlists; edits patch known fields only. `buildBackup` spreads the original
   envelope/library so future fields survive. Never normalise into a new object and
   re-encode from scratch.
+- **Quick backup is the one-click Save now.** The topbar button routes to the
+  selected Drive-for-Desktop folder first, then a connected Drive folder, and is
+  hidden until a destination exists. It uses the same timestamped `-web` name and
+  checkpoint as **Save now**; do not add a save panel or a second naming scheme.
 - **Web-written backups carry `-web` and the loaded profile.** Manual exports and
   **Save now** use `TubeShelf <profile> YYYY-MM-DD HH.MM.SS-web.json`, where the
   profile comes from the loaded Mac filename and is omitted when absent. This

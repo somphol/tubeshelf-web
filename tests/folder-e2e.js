@@ -82,6 +82,13 @@ import puppeteer from "puppeteer-core";
   assert.equal(opened.cards, 7);
   assert.equal(opened.modal, true);
 
+  assert.equal(await page.$eval("#quick-backup", (node) => node.hidden), false);
+  await page.click("#quick-backup");
+  await new Promise((r) => setTimeout(r, 600));
+  const quick = await page.evaluate(() => [...window.__fakeFiles.keys()]);
+  assert.equal(quick.length, 2, "Quick backup writes a second file");
+  assert.ok(quick.every((name) => name.endsWith("-web.json")));
+
   const auto = await page.evaluate(async () => {
     const t = window.__tubeshelfTest;
     t.state.folder.lastSavedAt = 0;
@@ -90,10 +97,10 @@ import puppeteer from "puppeteer-core";
     await t.maybeAutoSave();
     return { files: [...window.__fakeFiles.keys()], dirty: t.state.store.dirty };
   });
-  assert.equal(auto.files.length, 2);
+  assert.equal(auto.files.length, 3);
   assert.ok(auto.files.some((name) => name.includes("Autosave (Local Sync)")));
   assert.equal(auto.dirty, false);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ connected, saved, opened, auto, errors }, null, 2));
+  console.log(JSON.stringify({ connected, saved, opened, quick, auto, errors }, null, 2));
   await browser.close();
 })();

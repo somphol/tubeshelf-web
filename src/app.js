@@ -2372,9 +2372,35 @@ function driveClient() {
   return new Drive(state.drive.token);
 }
 
+function updateQuickBackupButton() {
+  const button = $("#quick-backup");
+  if (!button) return;
+  const folderReady = Boolean(state.folder.handle) && state.folder.status !== "off";
+  const driveReady = configured() && connected() && tokenValid() && Boolean(state.drive.folderId);
+  button.hidden = !state.store || !(folderReady || driveReady);
+  if (button.hidden) return;
+  button.title = folderReady
+    ? `Quick backup to ${state.folder.name || "the Google Drive folder"}`
+    : `Quick backup to ${state.drive.folderName || "Google Drive"}`;
+}
+
+async function quickBackup() {
+  if (!state.store) return;
+  if (state.folder.handle && state.folder.status !== "off") {
+    await saveNowToFolder();
+    return;
+  }
+  if (configured() && connected() && tokenValid() && state.drive.folderId) {
+    await saveNowToDrive();
+    return;
+  }
+  exportBackup();
+}
+
 function updateDriveButton() {
   const button = $("#drive");
   if (!button) return;
+  updateQuickBackupButton();
   if (state.folder.status === "ready") {
     const time = state.folder.lastSavedAt
       ? new Date(state.folder.lastSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -3038,6 +3064,7 @@ window.addEventListener("resize", () => {
   applySidebarState();
 });
 
+$("#quick-backup").addEventListener("click", quickBackup);
 $("#open").addEventListener("click", () => {
   if (configured()) {
     openDrivePanel("open");

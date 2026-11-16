@@ -62,6 +62,9 @@ start editing.
   applies one-sided changes and asks only where both sides changed the same
   field. Category conflicts default to combining both sides; the merge is one
   undo step. The common base survives a reload.
+- **Quick backup:** one click saves a timestamped `-web.json` straight to the
+  selected Google Drive folder, or to Drive when connected. It appears only when
+  a destination is set up; otherwise use **Export backup**.
 - **Google Drive folder (no OAuth):** install Google Drive for Desktop, choose
   the synced `My Drive/TubeShelf Backups` folder once in **Backups**, and the
   browser reads/writes it directly. No client ID, no Google Cloud project, no
