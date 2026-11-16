@@ -69,6 +69,17 @@ test("category conflicts default to combining both sides", () => {
   assert.deepEqual(mineOnly.videos[0].tags, ["Math", "Linear Algebra"]);
 });
 
+test("category merging keeps a removal and still takes the other side's addition", () => {
+  const base = shelf([video("a", { tags: ["Math"] })]);
+  const mine = shelf([video("a", { tags: ["Calculus"] })]);
+  const theirs = shelf([video("a", { tags: ["Math", "Physics"] })]);
+
+  const result = mergeShelves(base, mine, theirs);
+  assert.equal(result.conflicts.length, 1);
+  assert.deepEqual(result.conflicts[0].fields[0].both, ["Calculus", "Physics"]);
+  assert.deepEqual(result.shelf.videos[0].tags, ["Calculus", "Physics"]);
+});
+
 test("favorite fills from one side and watch state can conflict", () => {
   const base = shelf([video("a")]);
   const mine = shelf([video("a", { isFavorite: true, watchStatus: "watching" })]);

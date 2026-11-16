@@ -92,7 +92,7 @@ and snapshots; clearing site data removes them.
   app's schema; preserve unknown fields).
 - Handoff: [AGENTS.md](AGENTS.md) — architecture, decisions, gaps, Drive plan.
 - Plan: [PLAN.md](PLAN.md).
-- Tests: `npm test` (69 tests); browser proof: `npm run test:e2e` (fake Google
+- Tests: `npm test` (70 tests); browser proof: `npm run test:e2e` (fake Google
   OAuth + Drive, no credentials), `npm run test:e2e:folder` (no-OAuth folder),
   `npm run test:e2e:merge` (conflicts, undo and reload), `npm run test:e2e:deck`
   (presentation flow) and `npm run test:e2e:graph` (WebGL + labels).

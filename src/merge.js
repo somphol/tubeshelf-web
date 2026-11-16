@@ -64,6 +64,30 @@ function mergeTags(mine, theirs) {
   return tagsOf([...mine, ...theirs]);
 }
 
+/** True three-way set merge for categories: removals survive when the other side kept them. */
+function mergeTagSets(base, mine, theirs) {
+  const baseKeys = new Set(base.map((tag) => tag.toLowerCase()));
+  const mineKeys = new Set(mine.map((tag) => tag.toLowerCase()));
+  const theirKeys = new Set(theirs.map((tag) => tag.toLowerCase()));
+  const seen = new Set();
+  const out = [];
+  for (const tag of [...mine, ...theirs]) {
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const inBase = baseKeys.has(key);
+    const inMine = mineKeys.has(key);
+    const inTheirs = theirKeys.has(key);
+    let keep;
+    if (inMine === inTheirs) keep = inMine;
+    else if (inMine === inBase) keep = inTheirs;
+    else if (inTheirs === inBase) keep = inMine;
+    else keep = true;
+    if (keep) out.push(inMine ? mine.find((item) => item.toLowerCase() === key) : theirs.find((item) => item.toLowerCase() === key));
+  }
+  return tagsOf(out);
+}
+
 function joinTags(mine, theirs) {
   return mergeTags(tagsOf(mine), tagsOf(theirs));
 }
@@ -116,14 +140,18 @@ function mergeVideo(base, mine, theirs) {
       }
     }
     const fallback = field.allowBoth ? "both" : "mine";
-    chosen[key] = fallback === "both"
-      ? joinTags(mineValues[key], theirValues[key])
-      : mineValues[key];
+    const both = field.allowBoth
+      ? (baseValues
+        ? mergeTagSets(baseValues[key], mineValues[key], theirValues[key])
+        : joinTags(mineValues[key], theirValues[key]))
+      : null;
+    chosen[key] = fallback === "both" ? both : mineValues[key];
     fields.push({
       key,
       label: field.label,
       mine: mineValues[key],
       theirs: theirValues[key],
+      both,
       default: fallback,
       allowBoth: field.allowBoth,
     });
@@ -394,7 +422,7 @@ function conflictChoice(choices, group, field) {
 
 function applyField(video, field, choice) {
   if (choice === "both") {
-    video[field.key] = mergeTags(field.mine, field.theirs);
+    video[field.key] = clone(field.both || mergeTags(field.mine, field.theirs));
     return;
   }
   video[field.key] = clone(choice === "theirs" ? field.theirs : field.mine);

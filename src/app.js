@@ -444,9 +444,11 @@ function choiceOption(key, value, choice, label, field) {
     },
   });
   const detail = field
-    ? conflictValueLabel(field.key, choice === "theirs" ? field.theirs : choice === "both"
-      ? Array.from(new Set([...field.mine, ...field.theirs]))
-      : field.mine)
+    ? conflictValueLabel(field.key, choice === "theirs"
+      ? field.theirs
+      : choice === "both"
+        ? (field.both || Array.from(new Set([...field.mine, ...field.theirs])))
+        : field.mine)
     : "";
   return el("label", { class: "reconcile-choice" },
     input,
