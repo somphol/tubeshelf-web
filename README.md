@@ -1,4 +1,4 @@
-# TubeShelf Web (editable)
+# TubeShelf Web
 
 A static, local-first editor for **TubeShelf backups**. Open a backup exported by
 the [Mac app](https://github.com/somphol/tubeshelf), edit categories, notes,
