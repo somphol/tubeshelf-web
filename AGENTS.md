@@ -25,8 +25,10 @@ Implemented and manually verified on 2026-11-15:
 - Three-way merge when opening a backup over local edits: one-sided changes are
   applied, conflicts ask per field, tags default to Both, and the merge is one
   undo step. The base is stored with the draft.
-- Slide deck: **Present** from the header or a card; arrow keys, Home/End, wheel
-  and filmstrip; tags filter, Edit/Play actions, Esc returns. Video slides only.
+- Slide deck: click a card or **Present** from the header; arrow keys, Home/End,
+  wheel and filmstrip; tags filter, Edit/Play actions, Esc returns. Left-click is
+  a slide; right-click opens Show slide / Edit categories / YouTube. Video slides
+  only.
 - IndexedDB local copy with automatic restore; timestamped export download.
 - Google Drive: OAuth (Picker/`drive.file` or full `drive`), folder listing,
   open-latest, manual timestamped save, hourly change-only autosave, retention 24.

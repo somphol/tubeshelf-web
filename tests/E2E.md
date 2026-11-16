@@ -36,7 +36,7 @@ favorite-only change, resolves the conflict, checks the merge is one undo step,
 reloads to prove the base survived the draft, confirms a non-conflicting backup
 applies without a modal, and checks the panel at 390 px.
 
-For the slide deck:
+For the slide deck (including card click and right-click):
 
 ```bash
 npm run test:e2e:deck

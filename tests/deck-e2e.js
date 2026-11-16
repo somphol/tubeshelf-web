@@ -31,6 +31,27 @@ try {
   const counter = () => page.$eval(".deck-top .right", (node) => node.textContent);
   const deckOpen = () => page.$eval("#deck", (node) => !node.hidden);
 
+  await page.click(".card");
+  await wait(400);
+  assert.equal(await deckOpen(), true, "left-clicking a card opens the slide");
+  assert.equal(await counter(), "1 / 7✕", "the clicked card starts the deck");
+  await page.keyboard.press("Escape");
+  await wait(200);
+
+  await page.click(".card", { button: "right" });
+  await wait(250);
+  assert.equal(await page.$eval("#context-menu", (node) => node.hidden), false, "right-click opens the menu");
+  const menu = await page.$$eval("#context-menu button", (nodes) => nodes.map((node) => node.textContent));
+  assert.ok(menu.includes("Edit categories and notes…"), "the menu offers category editing");
+  await page.evaluate(() => {
+    [...document.querySelectorAll("#context-menu button")]
+      .find((node) => node.textContent === "Edit categories and notes…")
+      .click();
+  });
+  await page.waitForSelector("#editor-modal:not([hidden])", { timeout: 5000 });
+  await page.click("#editor-close");
+  await wait(200);
+
   const headPresent = await presentButton();
   assert.ok(headPresent, "header Present button exists");
   await headPresent.click();

@@ -1001,6 +1001,12 @@ function renderContent() {
   }
 }
 
+function presentVideo(video) {
+  const items = currentVideos();
+  const start = Math.max(0, items.findIndex((entry) => entry.youtubeID === video.youtubeID));
+  openDeck(items, start);
+}
+
 function videoCard(video) {
   const thumb = el("div", { class: "thumb" });
   const img = coverImage(video.youtubeID, () => {
@@ -1024,9 +1030,7 @@ function videoCard(video) {
       title: "Present from here",
       onclick: (event) => {
         event.stopPropagation();
-        const items = currentVideos();
-        const start = Math.max(0, items.findIndex((entry) => entry.youtubeID === video.youtubeID));
-        openDeck(items, start);
+        presentVideo(video);
       },
     }, "Present"),
     el("button", {
@@ -1041,7 +1045,22 @@ function videoCard(video) {
 
   return el("button", {
     class: "card",
-    onclick: () => openEditor(video.youtubeID),
+    title: "Open slide · right-click to edit",
+    onclick: () => presentVideo(video),
+    oncontextmenu: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showContextMenu(event.clientX, event.clientY, [
+        { label: "Show slide", action: () => presentVideo(video) },
+        { label: "Edit categories and notes…", action: () => openEditor(video.youtubeID) },
+        { separator: true },
+        {
+          label: "Open on YouTube",
+          action: () => window.open(watchURL(video.youtubeID), "_blank", "noopener"),
+        },
+      ]);
+      return false;
+    },
   },
     thumb,
     el("div", { class: "card-body" },

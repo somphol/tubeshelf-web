@@ -42,10 +42,12 @@ start editing.
   silently filed as Unsorted.
 - Category actions: pin/unpin, rename, merge into another category, delete.
 - Pin channels alongside categories.
-- **Slide deck:** press **Present** in the header (or on a card) to show the
-  current list full-screen. Arrow keys, Home/End, mouse wheel, or the filmstrip
-  move between slides; tags filter the shelf, **Edit** opens the editor, **Play on
-  YouTube** opens the video, and **Esc** returns to the grid.
+- **Slide deck:** click any card, or press **Present** in the header, to show the
+  current list full-screen starting at that video. Arrow keys, Home/End, mouse
+  wheel, or the filmstrip move between slides; tags filter the shelf, **Edit**
+  opens the editor, **Play on YouTube** opens the video, and **Esc** returns.
+- **Right-click a card** for Show slide / Edit categories and notes / Open on
+  YouTube. Left-click stays a slide, never the editor.
 - **Backups keep the profile name:** a Mac file named
   `TubeShelf My Shelf …json` exports as `TubeShelf My Shelf …-web.json`; a file
   without a profile keeps the short name.
