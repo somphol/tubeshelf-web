@@ -32,10 +32,10 @@ For the merge review:
 npm run test:e2e:merge
 ```
 
-It edits the demo note, opens a backup with a conflicting note plus a
-favorite-only change, resolves the conflict, checks the merge is one undo step,
-reloads to prove the base survived the draft, confirms a non-conflicting backup
-applies without a modal, and checks the panel at 390 px.
+It edits the demo note and adds a category, opens a backup that changed both plus
+a favorite-only change, resolves the two differences one at a time, checks the
+merge is one undo step, reloads to prove the base survived the draft, confirms a
+non-conflicting backup applies without a modal, and checks the panel at 390 px.
 
 For clipboard autofill (stubbed clipboard and oEmbed):
 

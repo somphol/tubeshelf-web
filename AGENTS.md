@@ -27,8 +27,9 @@ Implemented and manually verified on 2026-11-15:
 - Sidebar sections fold independently and remember; the whole bar hides with
   **☰**/⌘\, **Pin** stops pointer-leave auto-hide, and the left edge reveals it.
 - Three-way merge when opening a backup over local edits: one-sided changes are
-  applied, conflicts ask per field, tags default to Both, and the merge is one
-  undo step. The base is stored with the draft.
+  applied, conflicts are resolved one difference at a time (Keep this browser /
+  Use the backup / Keep both, with Back), and the merge is one undo step. The
+  base is stored with the draft.
 - Slide deck: click a card or **Present** from the header; arrow keys, Home/End,
   wheel and filmstrip; tags filter, Edit/Play actions, Esc returns. Left-click is
   a slide; right-click opens Show slide / Edit categories / YouTube. Video slides
@@ -200,6 +201,11 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
 - **Categories rewrite everywhere.** Rename/merge/delete update videos, courses
   and pins. Merging never deletes a category with no target; the UI requires a
   target.
+- **The merge resolver is a queue, not a form.** Flatten each conflict group into
+  one diff per field (or one presence diff), show only the current diff, and move
+  to the next after a choice. Keep `Back` for the last resolved diff, bulk
+  "All this browser/All backup" shortcuts, and disable Merge until the pending
+  count is zero. Never re-show every conflict as a wall of pickers.
 - **Opening over edits merges, never replaces.** `openIncoming` compares the
   loaded base, the current shelf and the incoming backup. One-sided changes apply
   automatically; only fields changed on both sides open the review modal. Local

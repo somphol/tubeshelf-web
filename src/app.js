@@ -430,7 +430,27 @@ function applyMergedShelf(shelf, name, stats = {}) {
 }
 
 function openReconcile(result, text, name) {
-  state.merge = { result, text, name, choices: {} };
+  const diffs = [];
+  for (const group of result.conflicts) {
+    if (group.fields?.length) {
+      for (const field of group.fields) {
+        diffs.push({ key: `${group.key}:${field.key}`, group, field });
+      }
+    } else {
+      diffs.push({ key: `${group.key}:presence`, group, field: null });
+    }
+  }
+  state.merge = {
+    result,
+    text,
+    name,
+    diffs,
+    choices: {},
+    resolved: new Set(),
+    order: [],
+    pending: diffs.map((diff) => diff.key),
+    current: diffs[0]?.key || null,
+  };
   renderReconcile();
   $("#reconcile-modal").hidden = false;
 }
@@ -451,106 +471,146 @@ function conflictValueLabel(key, value) {
   return String(value ?? "");
 }
 
-function choiceOption(key, value, choice, label, field) {
-  const input = el("input", {
-    type: "radio",
-    name: key,
-    value: choice,
-    checked: value === choice,
-    onchange: () => {
-      if (state.merge) state.merge.choices[key] = choice;
-    },
-  });
-  const detail = field
-    ? conflictValueLabel(field.key, choice === "theirs"
-      ? field.theirs
-      : choice === "both"
-        ? (field.both || Array.from(new Set([...field.mine, ...field.theirs])))
-        : field.mine)
-    : "";
-  return el("label", { class: "reconcile-choice" },
-    input,
-    el("span", { class: "reconcile-side", text: label }),
-    detail ? el("span", { class: "reconcile-value", text: detail }) : null
-  );
-}
-
-function fieldChoiceRow(group, field) {
-  const key = `${group.key}:${field.key}`;
-  const chosen = state.merge.choices[key] || field.default;
-  const row = el("div", { class: "reconcile-row" },
-    el("div", { class: "reconcile-row-label", text: field.label })
-  );
-  row.append(
-    choiceOption(key, chosen, "mine", "This browser", field),
-    choiceOption(key, chosen, "theirs", "Backup", field)
-  );
-  if (field.allowBoth) {
-    row.append(choiceOption(key, chosen, "both", "Both", field));
-  }
-  return row;
-}
-
 function presenceLabels(group) {
   if (group.kind === "playlist") {
+    if (group.presence === "deleted-in-backup") {
+      return {
+        note: "The backup deleted this course; this browser edited it.",
+        mine: "Keep this course",
+        theirs: "Use the deletion",
+      };
+    }
+    if (group.presence === "deleted-here") {
+      return {
+        note: "This browser deleted this course; the backup edited it.",
+        mine: "Keep it deleted",
+        theirs: "Bring it back",
+      };
+    }
+    return { note: "Changed in both places.", mine: "Keep this course", theirs: "Use the backup" };
+  }
+  if (group.presence === "deleted-in-backup") {
     return {
-      note: group.presence === "deleted-in-backup"
-        ? "Deleted in the backup, edited here."
-        : group.presence === "deleted-here"
-          ? "Deleted here, edited in the backup."
-          : "Changed in both places.",
-      mine: group.presence === "deleted-in-backup" ? "Keep it deleted here" : "This browser",
-      theirs: group.presence === "deleted-here" ? "Bring it back" : "Backup",
+      note: "The backup deleted this video; this browser edited it.",
+      mine: "Keep this video",
+      theirs: "Use the deletion",
     };
   }
   return {
-    note: group.presence === "deleted-in-backup"
-      ? "Deleted in the backup, edited here."
-      : "Deleted here, edited in the backup.",
-    mine: group.presence === "deleted-in-backup" ? "Keep it deleted here" : "Keep it deleted",
-    theirs: group.presence === "deleted-in-backup" ? "Restore from the backup" : "Bring it back",
+    note: "This browser deleted this video; the backup edited it.",
+    mine: "Keep it deleted",
+    theirs: "Bring it back",
   };
 }
 
-function presenceChoiceRow(group) {
-  const key = `${group.key}:presence`;
-  const chosen = state.merge.choices[key] || group.default;
-  const labels = presenceLabels(group);
-  const row = el("div", { class: "reconcile-row" },
-    el("div", { class: "reconcile-row-label", text: labels.note })
+function mergeDiff(key) {
+  return state.merge?.diffs.find((diff) => diff.key === key) || null;
+}
+
+function resolveCurrentDiff(key, choice) {
+  if (!state.merge) return;
+  state.merge.choices[key] = choice;
+  state.merge.resolved.add(key);
+  if (!state.merge.order.includes(key)) state.merge.order.push(key);
+  state.merge.pending = state.merge.pending.filter((item) => item !== key);
+  state.merge.current = state.merge.pending[0] || null;
+  renderReconcile();
+}
+
+function backDiff() {
+  if (!state.merge || !state.merge.order.length) return;
+  const key = state.merge.order.pop();
+  state.merge.resolved.delete(key);
+  state.merge.pending = [key, ...state.merge.pending.filter((item) => item !== key)];
+  state.merge.current = key;
+  renderReconcile();
+}
+
+function resolveAllDiffs(choice) {
+  if (!state.merge) return;
+  for (const diff of state.merge.diffs) {
+    state.merge.choices[diff.key] = choice;
+    state.merge.resolved.add(diff.key);
+  }
+  state.merge.pending = [];
+  state.merge.order = state.merge.diffs.map((diff) => diff.key);
+  state.merge.current = null;
+  renderReconcile();
+}
+
+function choiceCard(key, choice, title, value, extra = "") {
+  return el("button", {
+    class: `reconcile-choice-card ${extra}`.trim(),
+    type: "button",
+    "data-choice": choice,
+    onclick: () => resolveCurrentDiff(key, choice),
+  },
+    el("span", { class: "reconcile-choice-title", text: title }),
+    value ? el("span", { class: "reconcile-choice-value", text: value }) : null
   );
-  const detail = group.kind === "playlist" && group.incoming?.title
-    ? `Backup: ${group.incoming.title}`
-    : "";
-  row.append(
-    el("label", { class: "reconcile-choice" },
-      el("input", {
-        type: "radio",
-        name: key,
-        value: "mine",
-        checked: chosen === "mine",
-        onchange: () => { if (state.merge) state.merge.choices[key] = "mine"; },
-      }),
-      el("span", { class: "reconcile-side", text: labels.mine })
-    ),
-    el("label", { class: "reconcile-choice" },
-      el("input", {
-        type: "radio",
-        name: key,
-        value: "theirs",
-        checked: chosen === "theirs",
-        onchange: () => { if (state.merge) state.merge.choices[key] = "theirs"; },
-      }),
-      el("span", { class: "reconcile-side", text: labels.theirs }),
-      detail ? el("span", { class: "reconcile-value", text: detail }) : null
+}
+
+function diffCard(diff) {
+  const group = diff.group;
+  const card = el("section", { class: "reconcile-current" },
+    el("div", { class: "reconcile-card-head" },
+      el("strong", { text: group.title }),
+      el("span", { class: "chip", text: group.kind === "video" ? "Video" : "Course" })
     )
   );
-  return row;
+
+  if (diff.field) {
+    const field = diff.field;
+    card.append(
+      el("div", { class: "reconcile-current-label", text: field.label }),
+      el("div", { class: "reconcile-choices" },
+        choiceCard(diff.key, "mine", "Keep this browser", conflictValueLabel(field.key, field.mine)),
+        choiceCard(diff.key, "theirs", "Use the backup", conflictValueLabel(field.key, field.theirs)),
+        field.allowBoth
+          ? choiceCard(
+            diff.key,
+            "both",
+            "Keep both",
+            conflictValueLabel(
+              field.key,
+              field.both || Array.from(new Set([...field.mine, ...field.theirs]))
+            ),
+            "both"
+          )
+          : null
+      )
+    );
+  } else {
+    const labels = presenceLabels(group);
+    card.append(
+      el("div", { class: "reconcile-current-label", text: "Deleted or changed" }),
+      el("p", { class: "reconcile-question", text: labels.note }),
+      el("div", { class: "reconcile-choices" },
+        choiceCard(
+          diff.key,
+          "mine",
+          labels.mine,
+          group.kind === "playlist" ? group.mineTitle || "" : ""
+        ),
+        choiceCard(
+          diff.key,
+          "theirs",
+          labels.theirs,
+          group.kind === "playlist" ? group.theirsTitle || group.incoming?.title || "" : ""
+        )
+      )
+    );
+  }
+  return card;
 }
 
 function renderReconcile() {
   if (!state.merge) return;
-  const { result } = state.merge;
+  const merge = state.merge;
+  const { result } = merge;
+  const total = merge.diffs.length;
+  const done = merge.pending.length === 0;
+  const left = merge.pending.length;
   const body = $("#reconcile-body");
   body.replaceChildren();
 
@@ -560,60 +620,43 @@ function renderReconcile() {
   if (result.stats.deleted) parts.push(`${result.stats.deleted} removed`);
   if (result.stats.kept) parts.push(`${result.stats.kept} kept locally`);
   const summary = parts.length ? `${parts.join(" · ")}. ` : "";
-  const count = result.conflicts.length;
   body.append(
-    el("p", { class: "reconcile-source", text: `From ${state.merge.name}` }),
+    el("p", { class: "reconcile-source", text: `From ${merge.name}` }),
     el("p", { class: "reconcile-summary" },
-      `${summary}${count} conflict${count === 1 ? "" : "s"} need${count === 1 ? "s" : ""} a choice. ` +
-      "Other backup changes are applied automatically."
+      `${summary}${total} difference${total === 1 ? "" : "s"} to review. ` +
+      "One-sided backup changes are applied automatically."
     ),
+    el("div", { class: "reconcile-progress" },
+      el("span", { style: `width:${total ? (merge.resolved.size / total) * 100 : 100}%` })
+    ),
+    el("div", {
+      class: "reconcile-progress-label",
+      text: `${merge.resolved.size} of ${total} resolved · ${left} left`,
+    }),
     el("div", { class: "reconcile-toolbar" },
       el("button", {
         class: "button",
-        onclick: () => {
-          for (const group of result.conflicts) {
-            if (group.fields) {
-              for (const field of group.fields) {
-                state.merge.choices[`${group.key}:${field.key}`] = "mine";
-              }
-            } else {
-              state.merge.choices[`${group.key}:presence`] = "mine";
-            }
-          }
-          renderReconcile();
-        },
-      }, "All this browser"),
-      el("button", {
-        class: "button",
-        onclick: () => {
-          for (const group of result.conflicts) {
-            if (group.fields) {
-              for (const field of group.fields) {
-                state.merge.choices[`${group.key}:${field.key}`] = "theirs";
-              }
-            } else {
-              state.merge.choices[`${group.key}:presence`] = "theirs";
-            }
-          }
-          renderReconcile();
-        },
-      }, "All backup")
+        disabled: merge.order.length === 0,
+        onclick: backDiff,
+      }, "Back"),
+      el("button", { class: "button", onclick: () => resolveAllDiffs("mine") }, "All this browser"),
+      el("button", { class: "button", onclick: () => resolveAllDiffs("theirs") }, "All backup")
     )
   );
 
-  for (const group of result.conflicts) {
-    const card = el("section", { class: "reconcile-card" },
-      el("div", { class: "reconcile-card-head" },
-        el("strong", { text: group.title }),
-        el("span", { class: "chip", text: group.kind === "video" ? "Video" : "Course" })
-      )
-    );
-    if (group.fields) {
-      for (const field of group.fields) card.append(fieldChoiceRow(group, field));
-    } else {
-      card.append(presenceChoiceRow(group));
-    }
-    body.append(card);
+  if (done) {
+    body.append(el("div", { class: "reconcile-done" },
+      el("strong", { text: "All differences resolved" }),
+      el("p", { text: "Press Merge to apply the choices. Use Back to revisit the last difference." })
+    ));
+  } else {
+    body.append(diffCard(mergeDiff(merge.current)));
+  }
+
+  const mergeButton = $("#reconcile-merge");
+  if (mergeButton) {
+    mergeButton.disabled = !done;
+    mergeButton.textContent = done ? "Merge" : `Merge (${left} left)`;
   }
 }
 

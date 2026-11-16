@@ -59,9 +59,10 @@ start editing.
   `TubeShelf My Shelf …json` exports as `TubeShelf My Shelf …-web.json`; a file
   without a profile keeps the short name.
 - **Merge instead of replace:** opening a backup while this browser has edits
-  applies one-sided changes and asks only where both sides changed the same
-  field. Category conflicts default to combining both sides; the merge is one
-  undo step. The common base survives a reload.
+  applies one-sided changes and asks only where both sides changed. Differences
+  are reviewed one at a time: **Keep this browser / Use the backup / Keep both**,
+  with **Back** to revisit the last choice. Merge enables when none are left; the
+  merge is one undo step and the common base survives a reload.
 - **Quick backup:** one click saves a timestamped `-web.json` straight to the
   selected Google Drive folder, or to Drive when connected. It appears only when
   a destination is set up; otherwise use **Export backup**.

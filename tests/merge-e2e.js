@@ -17,6 +17,7 @@ function fixture(path, mutate) {
 const conflictFile = fixture("/tmp/tubeshelf-merge-conflict.json", (backup) => {
   const video = backup.library.videos.find((item) => item.youtubeID === "VEtU4Co08yY");
   video.note = "backup note";
+  video.tags = ["Cooking", "Web Tag"];
   backup.library.videos.find((item) => item.youtubeID === "jNQXAC9IVRw").isFavorite = true;
 });
 
@@ -44,7 +45,7 @@ try {
   const storeValue = (expression) =>
     page.evaluate((code) => Function(`return (${code})`)(), expression);
 
-  async function editNote(note) {
+  async function editNote(note, tag = "") {
     const opened = await page.evaluate(() => {
       const card = document.querySelector(".card");
       const button = [...card.querySelectorAll("button")].find((item) => item.title === "Edit categories and notes");
@@ -58,6 +59,10 @@ try {
       node.value = value;
       node.dispatchEvent(new Event("input", { bubbles: true }));
     }, note);
+    if (tag) {
+      await page.type('#editor-body input[list="editor-category-list"]', tag);
+      await page.keyboard.press("Enter");
+    }
     await page.evaluate(() => {
       const save = [...document.querySelectorAll("#editor-body .modal-actions button")]
         .find((button) => button.textContent === "Save");
@@ -72,31 +77,43 @@ try {
     await wait(800);
   }
 
-  await editNote("browser note");
+  await editNote("browser note", "Test Tag");
   assert.equal(await storeValue('window.__tubeshelfTest.state.store.videos.find(v => v.youtubeID === "VEtU4Co08yY").note'), "browser note");
 
   await upload(conflictFile);
   await page.waitForSelector("#reconcile-modal:not([hidden])", { timeout: 5000 });
   const summary = await page.$eval(".reconcile-summary", (node) => node.textContent);
-  assert.match(summary, /1 conflict/);
-  assert.equal(await page.$$eval(".reconcile-card", (nodes) => nodes.length), 1);
-  assert.match(await page.$eval(".reconcile-card", (node) => node.textContent), /Note/);
+  assert.match(summary, /2 differences to review/);
+  assert.match(await page.$eval(".reconcile-progress-label", (node) => node.textContent), /0 of 2 resolved/);
+  assert.equal(await page.$eval("#reconcile-merge", (node) => node.disabled), true);
+  assert.match(await page.$eval(".reconcile-current", (node) => node.textContent), /Categories/);
 
-  const picked = await page.evaluate(() => {
-    const row = [...document.querySelectorAll(".reconcile-row")]
-      .find((node) => node.textContent.includes("Note"));
-    const backup = [...row.querySelectorAll(".reconcile-choice")]
-      .find((node) => node.textContent.includes("Backup"));
-    if (!backup) return false;
-    backup.querySelector("input").click();
-    return true;
-  });
-  assert.equal(picked, true, "backup note choice exists");
+  const choose = async (choice) => {
+    const picked = await page.evaluate((value) => {
+      const card = document.querySelector(`.reconcile-choice-card[data-choice="${value}"]`);
+      if (!card) return false;
+      card.click();
+      return true;
+    }, choice);
+    assert.equal(picked, true, `choice ${choice} exists`);
+    await wait(200);
+  };
+
+  await choose("theirs");
+  assert.match(await page.$eval(".reconcile-progress-label", (node) => node.textContent), /1 of 2 resolved/);
+  assert.equal(await page.$eval("#reconcile-merge", (node) => node.disabled), true);
+  assert.match(await page.$eval(".reconcile-current", (node) => node.textContent), /Note/);
+
+  await choose("theirs");
+  assert.match(await page.$eval(".reconcile-progress-label", (node) => node.textContent), /2 of 2 resolved/);
+  assert.equal(await page.$eval("#reconcile-merge", (node) => node.disabled), false);
+  assert.ok(await page.$(".reconcile-done"), "completion panel is shown");
 
   await page.click("#reconcile-merge");
   await wait(500);
   assert.equal(await page.$eval("#reconcile-modal", (node) => node.hidden), true, "modal closes after merge");
   assert.equal(await storeValue('window.__tubeshelfTest.state.store.videos.find(v => v.youtubeID === "VEtU4Co08yY").note'), "backup note");
+  assert.deepEqual(await storeValue('window.__tubeshelfTest.state.store.videos.find(v => v.youtubeID === "VEtU4Co08yY").tags'), ["Cooking", "Web Tag"]);
   assert.equal(await storeValue('window.__tubeshelfTest.state.store.videos.find(v => v.youtubeID === "jNQXAC9IVRw").isFavorite'), true);
   assert.equal(await storeValue("window.__tubeshelfTest.state.store.dirty"), true);
   assert.equal(await page.$eval("#undo", (node) => node.disabled), false);
@@ -105,6 +122,7 @@ try {
   await wait(300);
   assert.equal(await storeValue('window.__tubeshelfTest.state.store.videos.find(v => v.youtubeID === "VEtU4Co08yY").note'), "browser note");
   assert.equal(Boolean(await storeValue('window.__tubeshelfTest.state.store.videos.find(v => v.youtubeID === "jNQXAC9IVRw").isFavorite')), false);
+  assert.deepEqual(await storeValue('window.__tubeshelfTest.state.store.videos.find(v => v.youtubeID === "VEtU4Co08yY").tags'), ["Cooking", "Test Tag"]);
 
   await editNote("note before reload");
   await wait(1700);
