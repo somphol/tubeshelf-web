@@ -323,6 +323,24 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
 .deck-controls .grow { flex: 1; }
 .deck-progress { height: 3px; background: rgba(255,255,255,0.1); border-radius: 999px; margin: 0 18px; overflow: hidden; }
 .deck-progress > span { display: block; height: 100%; background: var(--accent); }
+.deck-media-placeholder {
+  width: min(70vw, 720px);
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.35);
+  font-size: 12px;
+}
+.deck-note {
+  color: rgba(255,255,255,0.62);
+  font-size: 12px;
+  font-style: italic;
+  margin: 10px 0 0;
+  max-height: 90px;
+  overflow-y: auto;
+}
 .mosaic {
   display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr;
   gap: 3px; border-radius: 14px; overflow: hidden; background: #111;

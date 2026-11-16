@@ -22,6 +22,8 @@ Implemented and manually verified on 2026-11-15:
 - Video editor: categories + suggestions, note, favorite, watched, remove.
 - Add by URL via YouTube oEmbed, duplicate guard.
 - Category pin/rename/merge/delete; channel pins.
+- Slide deck: **Present** from the header or a card; arrow keys, Home/End, wheel
+  and filmstrip; tags filter, Edit/Play actions, Esc returns. Video slides only.
 - IndexedDB local copy with automatic restore; timestamped export download.
 - Google Drive: OAuth (Picker/`drive.file` or full `drive`), folder listing,
   open-latest, manual timestamped save, hourly change-only autosave, retention 24.
@@ -44,6 +46,7 @@ python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 npm run test:e2e                   # fake Google OAuth + Drive, server must be running
 npm run test:e2e:folder            # no-OAuth local Drive folder save/open/autosave
+npm run test:e2e:deck              # presentation flow at 1240 px and 390 px
 npm run test:e2e:graph             # 3D canvas, labels, click-to-filter, destroy
 python3 scripts/sync-taxonomy.py   # regenerate taxonomy from ../tubeshelf
 python3 scripts/sync-taxonomy.py --check
@@ -82,7 +85,8 @@ reason; the value is that the whole app is auditable in one sitting.
 - `src/taxonomy.js` / `.json` — generated from the Mac's `TagTaxonomy.swift`.
   Never edit by hand; run `scripts/sync-taxonomy.py`.
 - `src/shelf.js` — filters, search, paging. Pure, copied from the read-only app.
-- `src/app.js` — DOM rendering, modals, session copy, export, keyboard.
+- `src/app.js` — DOM rendering, modals, session copy, export, slide deck,
+  keyboard.
 - `src/demo.js` — seven public videos; the only content shipped.
 - `index.html`, `styles.css` — shell and layout. System fonts only.
 
@@ -226,6 +230,9 @@ Read [PLAN.md](PLAN.md) for the full design. Summary:
   (e.g. JRE #2501 without the title suffix) are missed. The numbered-episode
   suffix covers most podcast titles.
 - No virtualised grid; fine for a few thousand videos, untested beyond that.
+- The deck presents the current filtered video list only; courses/playlists are
+  not slides. It snapshots the list when opened, so edits made behind it are not
+  reflected until it is reopened.
 - The app has no automated browser test; use [tests/E2E.md](tests/E2E.md).
 
 ## Continuity

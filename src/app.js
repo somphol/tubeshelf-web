@@ -128,6 +128,7 @@ const state = {
   graphSelected: null,
   graphController: null,
   graphToken: 0,
+  deck: null,
   folder: {
     supported: folderSupported(),
     handle: null,
@@ -260,6 +261,7 @@ function setDraftStatus() {
 /* ---------- loading ---------- */
 function loadText(text, name, { draft = false, dirty = false, restoreView = false } = {}) {
   try {
+    closeDeck();
     const parsed = parseBackup(text);
     state.store = createStore(parsed, name);
     state.draftAt = null;
@@ -642,6 +644,12 @@ function renderContent() {
     el("div", { class: "grow" }),
     el("button", {
       class: "button",
+      title: "Present this list as slides",
+      disabled: videos.length === 0,
+      onclick: () => openDeck(currentVideos(), 0),
+    }, "Present"),
+    el("button", {
+      class: "button",
       title: "Optional 3D category graph",
       onclick: () => {
         state.view = "graph";
@@ -715,6 +723,15 @@ function videoCard(video) {
       },
     }, "YouTube"),
     el("button", {
+      title: "Present from here",
+      onclick: (event) => {
+        event.stopPropagation();
+        const items = currentVideos();
+        const start = Math.max(0, items.findIndex((entry) => entry.youtubeID === video.youtubeID));
+        openDeck(items, start);
+      },
+    }, "Present"),
+    el("button", {
       title: "Edit categories and notes",
       onclick: (event) => {
         event.stopPropagation();
@@ -783,6 +800,164 @@ function pager(items, window) {
       },
     }, "Next")
   );
+}
+
+
+/* ---------- slide deck ---------- */
+function openDeck(items, start = 0) {
+  const videos = items.filter((item) => item?.youtubeID);
+  if (!videos.length) return;
+  state.deck = { items: videos, index: Math.max(0, Math.min(start, videos.length - 1)) };
+  $("#deck").hidden = false;
+  document.body.style.overflow = "hidden";
+  renderDeck();
+}
+
+function closeDeck() {
+  state.deck = null;
+  const deck = $("#deck");
+  if (deck) deck.hidden = true;
+  document.body.style.overflow = "";
+}
+
+function deckStep(delta) {
+  if (!state.deck) return;
+  const next = state.deck.index + delta;
+  if (next < 0 || next >= state.deck.items.length) return;
+  state.deck.index = next;
+  renderDeck();
+}
+
+function deckJump(index) {
+  if (!state.deck) return;
+  state.deck.index = Math.max(0, Math.min(index, state.deck.items.length - 1));
+  renderDeck();
+}
+
+function renderDeck() {
+  const deck = $("#deck");
+  if (!deck || !state.deck) return;
+  const video = state.deck.items[state.deck.index];
+  const backdrop = el("div", { class: "deck-backdrop" });
+  const backdropImg = coverImage(video.youtubeID, () => {});
+  backdrop.append(backdropImg);
+
+  const top = el("div", { class: "deck-top" },
+    el("button", { class: "pill", onclick: closeDeck, text: "‹ Shelf" }, " "),
+    el("span", { text: filterTitle() }),
+    el("div", { class: "right" },
+      el("span", { text: `${state.deck.index + 1} / ${state.deck.items.length}` }),
+      el("button", { class: "pill", onclick: closeDeck, title: "Close (esc)" }, "✕")
+    )
+  );
+
+  const media = el("div", { class: "deck-media" });
+  const placeholder = el("div", { class: "deck-media-placeholder", text: "No artwork" });
+  const img = coverImage(video.youtubeID, () => {
+    img.remove();
+    media.prepend(placeholder);
+  });
+  media.append(img);
+  media.append(
+    el("button", {
+      class: "deck-nav prev",
+      disabled: state.deck.index === 0,
+      title: "Previous (←)",
+      onclick: () => deckStep(-1),
+    }, "‹"),
+    el("button", {
+      class: "deck-nav next",
+      disabled: state.deck.index >= state.deck.items.length - 1,
+      title: "Next (→)",
+      onclick: () => deckStep(1),
+    }, "›")
+  );
+
+  const info = el("div", { class: "deck-info" },
+    el("div", { class: "deck-kicker", text: "SLIDE" }),
+    el("div", { class: "deck-title", text: video.title }),
+    el("div", { class: "deck-meta" },
+      el("span", { text: video.channel || "Unknown channel" }),
+      video.durationSeconds ? el("span", { text: "·" }) : null,
+      video.durationSeconds ? el("span", { text: formatDuration(video.durationSeconds) }) : null,
+      video.watchStatus === "done" ? el("span", { text: "· Watched" }) : null,
+      video.isFavorite ? el("span", { text: "· ★ Favorite" }) : null
+    ),
+    el("div", { class: "deck-saved", text: `saved ${dateLabel(video.addedAt)}` }),
+    deckTags(video.tags),
+    video.note ? el("p", { class: "deck-note", text: video.note }) : null,
+    el("div", { class: "deck-actions" },
+      el("a", {
+        class: "button primary",
+        href: watchURL(video.youtubeID),
+        target: "_blank",
+        rel: "noreferrer noopener",
+        text: "Play on YouTube",
+      }),
+      el("button", {
+        class: "button",
+        onclick: () => {
+          closeDeck();
+          openEditor(video.youtubeID);
+        },
+      }, "Edit")
+    )
+  );
+
+  const body = el("div", { class: "deck-body" }, media, info);
+
+  const film = el("div", { class: "filmstrip" });
+  const radius = 16;
+  const lower = Math.max(0, state.deck.index - radius);
+  const upper = Math.min(state.deck.items.length, state.deck.index + radius + 1);
+  for (let i = lower; i < upper; i += 1) {
+    const item = state.deck.items[i];
+    const button = el("button", {
+      class: i === state.deck.index ? "current" : "",
+      title: item.title,
+      onclick: () => deckJump(i),
+    });
+    button.append(coverImage(item.youtubeID, () => {}));
+    film.append(button);
+  }
+
+  const progress = el("div", { class: "deck-progress" },
+    el("span", { style: `width:${((state.deck.index + 1) / state.deck.items.length) * 100}%` })
+  );
+
+  const controls = el("div", { class: "deck-controls" },
+    el("button", { class: "button", disabled: state.deck.index === 0, onclick: () => deckStep(-1) }, "‹ Previous"),
+    el("span", { class: "grow" }),
+    el("a", {
+      class: "link",
+      href: watchURL(video.youtubeID),
+      target: "_blank",
+      rel: "noreferrer noopener",
+      text: "Open on YouTube",
+    }),
+    el("span", { class: "grow" }),
+    el("button", { class: "button", disabled: state.deck.index >= state.deck.items.length - 1, onclick: () => deckStep(1) }, "Next ›")
+  );
+
+  deck.replaceChildren(backdrop, top, body, film, progress, controls);
+  requestAnimationFrame(() => {
+    film.querySelector(".current")?.scrollIntoView({ inline: "center", block: "nearest" });
+  });
+}
+
+function deckTags(tags) {
+  if (!tags.length) return el("div", { class: "deck-tags" }, el("span", { class: "deck-chapter", text: "No category" }));
+  return el("div", { class: "deck-tags" }, tags.map((tag) =>
+    el("button", {
+      onclick: () => {
+        closeDeck();
+        state.filter = { kind: "tag", value: tag };
+        state.page = 0;
+        render();
+      },
+      text: tag,
+    })
+  ));
 }
 
 /* ---------- categories ---------- */
@@ -1248,6 +1423,7 @@ function openAdd() {
   $("#add-modal").hidden = false;
   urlInput.focus();
 }
+
 
 /* ---------- categories ---------- */
 function renamePrompt(name) {
@@ -2358,6 +2534,14 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (state.deck) {
+    if (event.key === "ArrowRight") { event.preventDefault(); deckStep(1); return; }
+    if (event.key === "ArrowLeft") { event.preventDefault(); deckStep(-1); return; }
+    if (event.key === "Home") { event.preventDefault(); deckJump(0); return; }
+    if (event.key === "End") { event.preventDefault(); deckJump(state.deck.items.length - 1); return; }
+    if (event.key === "Escape") { event.preventDefault(); closeDeck(); return; }
+    return;
+  }
   if (event.key === "Escape") {
     if (closeAll()) event.preventDefault();
     return;
@@ -2380,6 +2564,18 @@ document.addEventListener("keydown", (event) => {
     undoLast();
   }
 });
+
+let lastDeckWheel = 0;
+$("#deck").addEventListener("wheel", (event) => {
+  if (!state.deck) return;
+  if (event.target.closest?.(".filmstrip, .deck-controls")) return;
+  const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+  if (Math.abs(delta) < 8) return;
+  const now = Date.now();
+  if (now - lastDeckWheel < 280) return;
+  lastDeckWheel = now;
+  deckStep(delta > 0 ? 1 : -1);
+}, { passive: true });
 
 window.addEventListener("beforeunload", (event) => {
   if (state.store?.dirty) {

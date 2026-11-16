@@ -25,6 +25,16 @@ It chooses a folder, saves a timestamped backup, opens the latest, writes the
 hourly `Local Sync` autosave and checks the shelf is marked clean. No OAuth or
 Google Cloud project.
 
+For the slide deck:
+
+```bash
+npm run test:e2e:deck
+```
+
+It opens the demo, presses **Present**, checks 7 slides, arrow/Home/End/wheel
+navigation, card-start, Escape, and the 390 px stacked layout with hidden arrow
+buttons.
+
 For the 3D view:
 
 ```bash
