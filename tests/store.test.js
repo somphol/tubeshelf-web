@@ -10,6 +10,7 @@ import {
   setVideoWatchStatus,
   addVideo,
   newVideo,
+  replaceShelf,
   deleteVideo,
   toggleTagPin,
   toggleChannelPin,
@@ -164,4 +165,21 @@ test("a raw library file exports as a backup envelope", () => {
   assert.equal(out.format, "tubeshelf.backup");
   assert.equal(out.library.futureX, 1);
   assert.equal(out.playlists, undefined);
+});
+
+test("replaceShelf is one undoable step", () => {
+  const shelf = store();
+  const before = shelf.videos.length;
+  replaceShelf(shelf, {
+    videos: [{ youtubeID: "dQw4w9WgXcQ", title: "Only", tags: ["Math"] }],
+    playlists: [],
+    pinnedTags: ["Math"],
+    pinnedChannels: [],
+    hasPlaylistCatalog: false,
+  });
+  assert.equal(shelf.videos.length, 1);
+  assert.equal(shelf.videos[0].title, "Only");
+  assert.equal(shelf.dirty, true);
+  assert.equal(undo(shelf), true);
+  assert.equal(shelf.videos.length, before);
 });

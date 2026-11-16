@@ -46,8 +46,10 @@ start editing.
   current list full-screen. Arrow keys, Home/End, mouse wheel, or the filmstrip
   move between slides; tags filter the shelf, **Edit** opens the editor, **Play on
   YouTube** opens the video, and **Esc** returns to the grid.
-- Local copy in IndexedDB: a reload reopens the last shelf and keeps your
-  category, search and page. A banner lets you forget it.
+- **Merge instead of replace:** opening a backup while this browser has edits
+  applies one-sided changes and asks only where both sides changed the same
+  field. Category conflicts default to combining both sides; the merge is one
+  undo step. The common base survives a reload.
 - **Google Drive folder (no OAuth):** install Google Drive for Desktop, choose
   the synced `My Drive/TubeShelf Backups` folder once in **Backups**, and the
   browser reads/writes it directly. No client ID, no Google Cloud project, no
@@ -88,10 +90,10 @@ and snapshots; clearing site data removes them.
   app's schema; preserve unknown fields).
 - Handoff: [AGENTS.md](AGENTS.md) — architecture, decisions, gaps, Drive plan.
 - Plan: [PLAN.md](PLAN.md).
-- Tests: `npm test` (54 tests); browser proof: `npm run test:e2e` (fake Google
+- Tests: `npm test` (69 tests); browser proof: `npm run test:e2e` (fake Google
   OAuth + Drive, no credentials), `npm run test:e2e:folder` (no-OAuth folder),
-  `npm run test:e2e:deck` (presentation flow) and `npm run test:e2e:graph`
-  (WebGL + labels).
+  `npm run test:e2e:merge` (conflicts, undo and reload), `npm run test:e2e:deck`
+  (presentation flow) and `npm run test:e2e:graph` (WebGL + labels).
   Notes in [tests/E2E.md](tests/E2E.md). Drive setup: [DRIVE.md](DRIVE.md).
 - The Mac app is public: <https://github.com/somphol/tubeshelf>.
 

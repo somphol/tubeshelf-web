@@ -108,6 +108,22 @@
     </div>
   </div>
 
+  <div id="reconcile-modal" class="modal" hidden>
+    <div class="modal-panel reconcile-panel" role="dialog" aria-modal="true" aria-label="Merge backup">
+      <div class="modal-head">
+        <h2>Merge backup</h2>
+        <button class="icon-button" id="reconcile-close" title="Close (esc)">✕</button>
+      </div>
+      <div id="reconcile-body" class="modal-body"></div>
+      <div class="modal-actions">
+        <button class="button" id="reconcile-keep">Keep this browser</button>
+        <span class="grow"></span>
+        <button class="button danger" id="reconcile-replace">Use backup instead</button>
+        <button class="button primary" id="reconcile-merge">Merge</button>
+      </div>
+    </div>
+  </div>
+
   <div id="merge-modal" class="modal" hidden>
     <div class="modal-panel small-panel" role="dialog" aria-modal="true" aria-label="Merge category">
       <div class="modal-head">

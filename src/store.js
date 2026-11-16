@@ -189,6 +189,21 @@ export function addVideo(store, video) {
   return true;
 }
 
+/** Replace the whole shelf in one undoable step (used by the merge review). */
+export function replaceShelf(store, shelf) {
+  remember(store);
+  store.videos = shelf.videos || [];
+  store.playlists = shelf.playlists || [];
+  store.pinnedTags = shelf.pinnedTags || [];
+  store.pinnedChannels = shelf.pinnedChannels || [];
+  if (typeof shelf.hasPlaylistCatalog === "boolean") {
+    store.hasPlaylistCatalog = shelf.hasPlaylistCatalog;
+  } else if (store.playlists.length) {
+    store.hasPlaylistCatalog = true;
+  }
+  touch(store);
+}
+
 export function newVideo({ youtubeID, title, channel, tags = [], note = "", durationSeconds = null }) {
   return {
     id: crypto.randomUUID(),

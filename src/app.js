@@ -17,6 +17,7 @@ import {
   deleteVideo,
   addVideo,
   newVideo,
+  replaceShelf,
   hasDuplicate,
   videoByYoutubeID,
   canUndo,
@@ -59,6 +60,7 @@ import {
   folderRetentionVictims,
   latestBackup,
 } from "./folder.js";
+import { mergeShelves, resolveMerge, shelfFingerprint } from "./merge.js";
 import { buildGraph } from "./graph.js";
 import { mountGraph } from "./graph-view.js";
 import {
@@ -109,6 +111,9 @@ const state = {
   sidebarQuery: "",
   context: null,
   draftAt: null,
+  base: null,
+  baseText: null,
+  merge: null,
   drive: {
     settings: loadDriveSettings(),
     token: null,
@@ -235,6 +240,7 @@ function scheduleDraft() {
     state.draftAt = new Date();
     await idbPut("draft", {
       text: currentBackup(state.store),
+      baseText: state.baseText || null,
       fileName: state.store.fileName,
       savedAt: state.draftAt.toISOString(),
       dirty: state.store.dirty,
@@ -259,12 +265,60 @@ function setDraftStatus() {
 }
 
 /* ---------- loading ---------- */
-function loadText(text, name, { draft = false, dirty = false, restoreView = false } = {}) {
+function shelfFromParsed(parsed) {
+  return {
+    videos: parsed.videos,
+    playlists: parsed.playlists,
+    pinnedTags: parsed.pinnedTags,
+    pinnedChannels: parsed.pinnedChannels,
+    hasPlaylistCatalog: parsed.hasPlaylistCatalog,
+  };
+}
+
+function shelfFromStore(store) {
+  return {
+    videos: store.videos,
+    playlists: store.playlists,
+    pinnedTags: store.pinnedTags,
+    pinnedChannels: store.pinnedChannels,
+    hasPlaylistCatalog: store.hasPlaylistCatalog,
+  };
+}
+
+function cloneShelf(shelf) {
+  return JSON.parse(JSON.stringify(shelf));
+}
+
+/** The last state the Mac could have started from: a load or a manual save. */
+function checkpointBase(text) {
+  if (!state.store) return;
+  state.base = cloneShelf(shelfFromStore(state.store));
+  state.baseText = text;
+}
+
+function loadText(text, name, { draft = false, dirty = false, restoreView = false, baseText = null } = {}) {
   try {
     closeDeck();
+    closeReconcile();
     const parsed = parseBackup(text);
     state.store = createStore(parsed, name);
     state.draftAt = null;
+    if (!draft) {
+      state.base = cloneShelf(shelfFromParsed(parsed));
+      state.baseText = text;
+    } else if (baseText) {
+      try {
+        state.base = cloneShelf(shelfFromParsed(parseBackup(baseText)));
+        state.baseText = baseText;
+      } catch {
+        state.base = null;
+        state.baseText = null;
+      }
+    } else {
+      // Older drafts have no common ancestor; treat every difference as a conflict.
+      state.base = null;
+      state.baseText = null;
+    }
     if (draft && dirty) {
       state.store.dirty = true;
       state.store.revision = 1;
@@ -299,11 +353,248 @@ async function loadFile(file) {
     toast("That file is larger than 32 MB.");
     return;
   }
-  loadText(await file.text(), file.name);
+  openIncoming(await file.text(), file.name);
 }
 
 function loadDemo() {
   loadText(JSON.stringify(demoBackup), "demo-shelf.json");
+}
+
+/* ---------- merging an opened backup ---------- */
+function openIncoming(text, name) {
+  let parsed;
+  try {
+    parsed = parseBackup(text);
+  } catch (error) {
+    toast(error.message || "That file could not be read.");
+    return "none";
+  }
+  if (!state.store || !state.store.dirty) {
+    loadText(text, name);
+    return "opened";
+  }
+  const current = shelfFromStore(state.store);
+  const incoming = shelfFromParsed(parsed);
+  if (shelfFingerprint(current) === shelfFingerprint(incoming)) {
+    toast("That backup matches this shelf.");
+    return "none";
+  }
+  if (state.base && shelfFingerprint(state.base) === shelfFingerprint(current)) {
+    loadText(text, name);
+    return "opened";
+  }
+  const result = mergeShelves(state.base, current, incoming);
+  const changed = result.stats.added + result.stats.updated + result.stats.deleted;
+  if (!changed && !result.conflicts.length) {
+    toast("That backup has no newer changes.");
+    return "none";
+  }
+  if (!result.conflicts.length) {
+    applyMergedShelf(result.shelf, name, result.stats);
+    return "merged";
+  }
+  openReconcile(result, text, name);
+  return "review";
+}
+
+function applyMergedShelf(shelf, name, stats = {}) {
+  if (!state.store) return;
+  replaceShelf(state.store, shelf);
+  closeReconcile();
+  renderAll();
+  scheduleDraft();
+  const conflicts = stats.conflicts || 0;
+  toast(
+    `Merged changes from ${name}${conflicts
+      ? ` · ${conflicts} conflict${conflicts === 1 ? "" : "s"} resolved`
+      : ""}`
+  );
+}
+
+function openReconcile(result, text, name) {
+  state.merge = { result, text, name, choices: {} };
+  renderReconcile();
+  $("#reconcile-modal").hidden = false;
+}
+
+function closeReconcile() {
+  state.merge = null;
+  const modal = $("#reconcile-modal");
+  if (modal) modal.hidden = true;
+}
+
+function conflictValueLabel(key, value) {
+  if (key === "tags") return value.length ? value.join(", ") : "No categories";
+  if (key === "note") return value ? value : "Empty";
+  if (key === "isFavorite") return value ? "Favorite" : "Not favorite";
+  if (key === "watchStatus") {
+    return { watched: "Watched", done: "Watched", watching: "Watching", unwatched: "Unwatched" }[value] || value;
+  }
+  return String(value ?? "");
+}
+
+function choiceOption(key, value, choice, label, group, field) {
+  const input = el("input", {
+    type: "radio",
+    name: key,
+    value: choice,
+    checked: value === choice,
+    onchange: () => {
+      if (state.merge) state.merge.choices[key] = choice;
+    },
+  });
+  const detail = field
+    ? conflictValueLabel(field.key, choice === "theirs" ? field.theirs : choice === "both"
+      ? Array.from(new Set([...field.mine, ...field.theirs]))
+      : field.mine)
+    : "";
+  return el("label", { class: "reconcile-choice" },
+    input,
+    el("span", { class: "reconcile-side", text: label }),
+    detail ? el("span", { class: "reconcile-value", text: detail }) : null
+  );
+}
+
+function fieldChoiceRow(group, field) {
+  const key = `${group.key}:${field.key}`;
+  const chosen = state.merge.choices[key] || field.default;
+  const row = el("div", { class: "reconcile-row" },
+    el("div", { class: "reconcile-row-label", text: field.label })
+  );
+  row.append(
+    choiceOption(key, chosen, "mine", "This browser", group, field),
+    choiceOption(key, chosen, "theirs", "Backup", group, field)
+  );
+  if (field.allowBoth) {
+    row.append(choiceOption(key, chosen, "both", "Both", group, field));
+  }
+  return row;
+}
+
+function presenceLabels(group) {
+  if (group.kind === "playlist") {
+    return {
+      note: group.presence === "deleted-in-backup"
+        ? "Deleted in the backup, edited here."
+        : group.presence === "deleted-here"
+          ? "Deleted here, edited in the backup."
+          : "Changed in both places.",
+      mine: group.presence === "deleted-in-backup" ? "Keep it deleted here" : "This browser",
+      theirs: group.presence === "deleted-here" ? "Bring it back" : "Backup",
+    };
+  }
+  return {
+    note: group.presence === "deleted-in-backup"
+      ? "Deleted in the backup, edited here."
+      : "Deleted here, edited in the backup.",
+    mine: group.presence === "deleted-in-backup" ? "Keep it deleted here" : "Keep it deleted",
+    theirs: group.presence === "deleted-in-backup" ? "Restore from the backup" : "Bring it back",
+  };
+}
+
+function presenceChoiceRow(group) {
+  const key = `${group.key}:presence`;
+  const chosen = state.merge.choices[key] || group.default;
+  const labels = presenceLabels(group);
+  const row = el("div", { class: "reconcile-row" },
+    el("div", { class: "reconcile-row-label", text: labels.note })
+  );
+  const detail = group.kind === "playlist" && group.incoming?.title
+    ? `Backup: ${group.incoming.title}`
+    : "";
+  row.append(
+    el("label", { class: "reconcile-choice" },
+      el("input", {
+        type: "radio",
+        name: key,
+        value: "mine",
+        checked: chosen === "mine",
+        onchange: () => { if (state.merge) state.merge.choices[key] = "mine"; },
+      }),
+      el("span", { class: "reconcile-side", text: labels.mine })
+    ),
+    el("label", { class: "reconcile-choice" },
+      el("input", {
+        type: "radio",
+        name: key,
+        value: "theirs",
+        checked: chosen === "theirs",
+        onchange: () => { if (state.merge) state.merge.choices[key] = "theirs"; },
+      }),
+      el("span", { class: "reconcile-side", text: labels.theirs }),
+      detail ? el("span", { class: "reconcile-value", text: detail }) : null
+    )
+  );
+  return row;
+}
+
+function renderReconcile() {
+  if (!state.merge) return;
+  const { result } = state.merge;
+  const body = $("#reconcile-body");
+  body.replaceChildren();
+
+  const parts = [];
+  if (result.stats.added) parts.push(`${result.stats.added} added`);
+  if (result.stats.updated) parts.push(`${result.stats.updated} updated`);
+  if (result.stats.deleted) parts.push(`${result.stats.deleted} removed`);
+  if (result.stats.kept) parts.push(`${result.stats.kept} kept locally`);
+  const summary = parts.length ? `${parts.join(" · ")}. ` : "";
+  const count = result.conflicts.length;
+  body.append(
+    el("p", { class: "reconcile-source", text: `From ${state.merge.name}` }),
+    el("p", { class: "reconcile-summary" },
+      `${summary}${count} conflict${count === 1 ? "" : "s"} need${count === 1 ? "s" : ""} a choice. ` +
+      "Other backup changes are applied automatically."
+    ),
+    el("div", { class: "reconcile-toolbar" },
+      el("button", {
+        class: "button",
+        onclick: () => {
+          for (const group of result.conflicts) {
+            if (group.fields) {
+              for (const field of group.fields) {
+                state.merge.choices[`${group.key}:${field.key}`] = "mine";
+              }
+            } else {
+              state.merge.choices[`${group.key}:presence`] = "mine";
+            }
+          }
+          renderReconcile();
+        },
+      }, "All this browser"),
+      el("button", {
+        class: "button",
+        onclick: () => {
+          for (const group of result.conflicts) {
+            if (group.fields) {
+              for (const field of group.fields) {
+                state.merge.choices[`${group.key}:${field.key}`] = "theirs";
+              }
+            } else {
+              state.merge.choices[`${group.key}:presence`] = "theirs";
+            }
+          }
+          renderReconcile();
+        },
+      }, "All backup")
+    )
+  );
+
+  for (const group of result.conflicts) {
+    const card = el("section", { class: "reconcile-card" },
+      el("div", { class: "reconcile-card-head" },
+        el("strong", { text: group.title }),
+        el("span", { class: "chip", text: group.kind === "video" ? "Video" : "Course" })
+      )
+    );
+    if (group.fields) {
+      for (const field of group.fields) card.append(fieldChoiceRow(group, field));
+    } else {
+      card.append(presenceChoiceRow(group));
+    }
+    body.append(card);
+  }
 }
 
 /* ---------- rendering ---------- */
@@ -1516,6 +1807,7 @@ function exportBackup() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+  checkpointBase(text);
   state.store.dirty = false;
   renderMeta();
   scheduleDraft();
@@ -1540,7 +1832,11 @@ function closeModal(selector) {
 
 function closeAll() {
   hideContextMenu();
-  for (const selector of ["#editor-modal", "#add-modal", "#merge-modal", "#drive-modal"]) {
+  if (!$("#reconcile-modal").hidden) {
+    closeReconcile();
+    return true;
+  }
+  for (const selector of ["#editor-modal", "#add-modal", "#merge-modal", "#drive-modal", "#reconcile-modal"]) {
     if (!$(selector).hidden) {
       $(selector).hidden = true;
       return true;
@@ -1701,15 +1997,10 @@ async function openLatestFolder() {
       renderDriveBody();
       return;
     }
-    if (state.store?.dirty
-        && !confirm("Replace the shelf in this browser with this folder backup? Unsaved local edits will be replaced.")) {
-      return;
-    }
     const text = await readText(latest.entry);
-    loadText(text, latest.name);
     state.folder.status = "ready";
-    closeModal("#drive-modal");
-    toast(`Opened ${latest.name}`);
+    const outcome = openIncoming(text, latest.name);
+    if (outcome !== "none") closeModal("#drive-modal");
   } catch (error) {
     state.folder.status = "error";
     state.folder.message = error.message;
@@ -1720,15 +2011,10 @@ async function openLatestFolder() {
 
 async function openFolderFile(file) {
   if (!(await ensureFolder(true))) return;
-  if (state.store?.dirty
-      && !confirm("Replace the shelf in this browser with this folder backup? Unsaved local edits will be replaced.")) {
-    return;
-  }
   try {
     const text = await readText(file.entry);
-    loadText(text, file.name);
-    closeModal("#drive-modal");
-    toast(`Opened ${file.name}`);
+    const outcome = openIncoming(text, file.name);
+    if (outcome !== "none") closeModal("#drive-modal");
   } catch (error) {
     toast(error.message);
   }
@@ -1742,8 +2028,10 @@ async function saveNowToFolder() {
   }
   try {
     const name = backupName();
-    await writeText(state.folder.handle, name, currentBackup(state.store));
+    const text = currentBackup(state.store);
+    await writeText(state.folder.handle, name, text);
     markSaved(state.store);
+    checkpointBase(text);
     state.folder.lastSavedAt = Date.now();
     persistFolderState();
     await refreshFolderFiles();
@@ -2065,19 +2353,16 @@ async function openLatestDrive() {
 }
 
 async function openDriveFile(file) {
-  if (state.store?.dirty
-      && !confirm("Replace the shelf in this browser with the Drive backup? Unsaved local edits will be replaced.")) {
-    return;
-  }
   try {
     const text = await driveClient().download(file.id);
-    loadText(text, file.name);
-    state.drive.lastAutoSaveAt = Date.now();
-    saveDriveState({ lastAutoSaveAt: state.drive.lastAutoSaveAt });
-    state.drive.status = "connected";
-    updateDriveButton();
-    closeModal("#drive-modal");
-    toast(`Opened ${file.name}`);
+    const outcome = openIncoming(text, file.name);
+    if (outcome === "opened" || outcome === "merged") {
+      state.drive.lastAutoSaveAt = Date.now();
+      saveDriveState({ lastAutoSaveAt: state.drive.lastAutoSaveAt });
+      state.drive.status = "connected";
+      updateDriveButton();
+    }
+    if (outcome !== "none") closeModal("#drive-modal");
   } catch (error) {
     handleDriveError(error);
     renderDriveBody();
@@ -2093,12 +2378,14 @@ async function saveNowToDrive() {
   }
   try {
     const name = backupName();
+    const text = currentBackup(state.store);
     await driveClient().upload({
       name,
-      text: currentBackup(state.store),
+      text,
       parents: [state.drive.folderId],
     });
     markSaved(state.store);
+    checkpointBase(text);
     state.drive.lastAutoSaveAt = Date.now();
     saveDriveState({ lastAutoSaveAt: state.drive.lastAutoSaveAt });
     state.drive.status = "connected";
@@ -2519,13 +2806,33 @@ $("#file").addEventListener("change", (event) => {
   event.target.value = "";
 });
 
+$("#reconcile-close").addEventListener("click", closeReconcile);
+$("#reconcile-keep").addEventListener("click", closeReconcile);
+$("#reconcile-merge").addEventListener("click", () => {
+  const merge = state.merge;
+  if (!merge) return;
+  const shelf = resolveMerge(merge.result.shelf, merge.result.conflicts, merge.choices);
+  applyMergedShelf(shelf, merge.name, {
+    ...merge.result.stats,
+    conflicts: merge.result.conflicts.length,
+  });
+});
+$("#reconcile-replace").addEventListener("click", () => {
+  const merge = state.merge;
+  if (!merge) return;
+  const { text, name } = merge;
+  closeReconcile();
+  loadText(text, name);
+});
 $("#editor-close").addEventListener("click", () => closeModal("#editor-modal"));
 $("#add-close").addEventListener("click", () => closeModal("#add-modal"));
 $("#merge-close").addEventListener("click", () => closeModal("#merge-modal"));
 
-for (const selector of ["#editor-modal", "#add-modal", "#merge-modal", "#drive-modal"]) {
+for (const selector of ["#editor-modal", "#add-modal", "#merge-modal", "#drive-modal", "#reconcile-modal"]) {
   $(selector).addEventListener("click", (event) => {
-    if (event.target === $(selector)) $(selector).hidden = true;
+    if (event.target !== $(selector)) return;
+    if (selector === "#reconcile-modal") closeReconcile();
+    else $(selector).hidden = true;
   });
 }
 
@@ -2638,6 +2945,9 @@ function clearSavedView() {
 
 function showLanding() {
   state.store = null;
+  state.base = null;
+  state.baseText = null;
+  closeReconcile();
   state.filter = { kind: "all" };
   state.query = "";
   state.page = 0;
@@ -2670,7 +2980,12 @@ function showLanding() {
   const draft = await idbGet("draft");
   if (!draft?.text) return;
 
-  loadText(draft.text, draft.fileName || "shelf.json", { draft: true, dirty: Boolean(draft.dirty), restoreView: true });
+  loadText(draft.text, draft.fileName || "shelf.json", {
+    draft: true,
+    dirty: Boolean(draft.dirty),
+    restoreView: true,
+    baseText: draft.baseText || null,
+  });
   const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : "earlier";
   $("#draft-meta").textContent = `Restored last session · ${draft.fileName || "shelf"} · ${when}`;
   $("#draft-banner").hidden = false;

@@ -25,6 +25,17 @@ It chooses a folder, saves a timestamped backup, opens the latest, writes the
 hourly `Local Sync` autosave and checks the shelf is marked clean. No OAuth or
 Google Cloud project.
 
+For the merge review:
+
+```bash
+npm run test:e2e:merge
+```
+
+It edits the demo note, opens a backup with a conflicting note plus a
+favorite-only change, resolves the conflict, checks the merge is one undo step,
+reloads to prove the base survived the draft, confirms a non-conflicting backup
+applies without a modal, and checks the panel at 390 px.
+
 For the slide deck:
 
 ```bash

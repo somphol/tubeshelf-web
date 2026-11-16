@@ -22,6 +22,9 @@ Implemented and manually verified on 2026-11-15:
 - Video editor: categories + suggestions, note, favorite, watched, remove.
 - Add by URL via YouTube oEmbed, duplicate guard.
 - Category pin/rename/merge/delete; channel pins.
+- Three-way merge when opening a backup over local edits: one-sided changes are
+  applied, conflicts ask per field, tags default to Both, and the merge is one
+  undo step. The base is stored with the draft.
 - Slide deck: **Present** from the header or a card; arrow keys, Home/End, wheel
   and filmstrip; tags filter, Edit/Play actions, Esc returns. Video slides only.
 - IndexedDB local copy with automatic restore; timestamped export download.
@@ -33,7 +36,7 @@ Implemented and manually verified on 2026-11-15:
 - Existing-category chips and type-ahead in the editor/add sheet; learned
   keyword profiles from the person's own filing and channel affinity.
 - A new video with no category requires confirmation before it becomes Unsorted.
-- 54 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
+- 69 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
 
 Not implemented: live OAuth verification (no credentials in the repo), course
 editing, bulk selection, in-place file save, redo UI, AI tagging.
@@ -41,11 +44,12 @@ editing, bulk selection, in-place file save, redo UI, AI tagging.
 ## Commands
 
 ```bash
-npm test                           # 54 unit tests (dev-only puppeteer dependency)
+npm test                           # 69 unit tests (dev-only puppeteer dependency)
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 npm run test:e2e                   # fake Google OAuth + Drive, server must be running
 npm run test:e2e:folder            # no-OAuth local Drive folder save/open/autosave
+npm run test:e2e:merge             # conflicts, undo, base persistence, 390 px
 npm run test:e2e:deck              # presentation flow at 1240 px and 390 px
 npm run test:e2e:graph             # 3D canvas, labels, click-to-filter, destroy
 python3 scripts/sync-taxonomy.py   # regenerate taxonomy from ../tubeshelf
@@ -66,7 +70,10 @@ reason; the value is that the whole app is auditable in one sitting.
   normalisers, thumbnails. Pure.
 - `src/store.js` — raw document state, mutations, canonical tags, pins, category
   rename/merge/delete, undo/redo, counts. Every mutation bumps `revision` and
-  `dirty`; unknown JSON fields survive.
+  `dirty`; unknown JSON fields survive. `replaceShelf` applies a merge as one
+  undoable step.
+- `src/merge.js` — pure three-way shelf merge: one-sided changes, field
+  conflicts, deletion conflicts, playlist fallback, pin merge. Unit tested.
 - `src/drive.js` — Google OAuth/Picker helpers and Drive REST transport. Pure
   helpers (names, retention, multipart) are unit-tested; the OAuth round-trip is
   not.
@@ -171,6 +178,16 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
 - **Categories rewrite everywhere.** Rename/merge/delete update videos, courses
   and pins. Merging never deletes a category with no target; the UI requires a
   target.
+- **Opening over edits merges, never replaces.** `openIncoming` compares the
+  loaded base, the current shelf and the incoming backup. One-sided changes apply
+  automatically; only fields changed on both sides open the review modal. Local
+  edits win by default; category conflicts default to Both. A merge is one
+  `replaceShelf` undo step. Do not go back to a plain replace confirmation.
+- **The merge base is a load or a manual save.** `state.base` is set when a file
+  is loaded and when an export/Drive/folder **Save now** succeeds; hourly
+  autosaves do not move it. It is persisted as `baseText` beside the draft so a
+  reload keeps the common ancestor. Old drafts without `baseText` fall back to a
+  conservative two-way review (every difference is a conflict).
 - **The local copy is automatic.** A single IndexedDB record under `draft` holds
   the last shelf, written 1.2 s after load or change. On boot it is restored
   automatically, with a banner offering **Keep** or **Forget**. The record stores
@@ -236,6 +253,11 @@ Read [PLAN.md](PLAN.md) for the full design. Summary:
 - The deck presents the current filtered video list only; courses/playlists are
   not slides. It snapshots the list when opened, so edits made behind it are not
   reflected until it is reopened.
+- Course/playlist merge is whole-record only; chapters are not merged field by
+  field. Local hourly snapshots still use the replace confirmation, not the merge
+  review.
+- The draft now stores `text` and `baseText`, roughly doubling its IndexedDB
+  footprint for large shelves. The 32 MB file cap still applies.
 - The app has no automated browser test; use [tests/E2E.md](tests/E2E.md).
 
 ## Continuity
