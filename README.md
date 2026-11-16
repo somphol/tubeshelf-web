@@ -46,6 +46,9 @@ start editing.
   current list full-screen. Arrow keys, Home/End, mouse wheel, or the filmstrip
   move between slides; tags filter the shelf, **Edit** opens the editor, **Play on
   YouTube** opens the video, and **Esc** returns to the grid.
+- **Backups keep the profile name:** a Mac file named
+  `TubeShelf My Shelf …json` exports as `TubeShelf My Shelf …-web.json`; a file
+  without a profile keeps the short name.
 - **Merge instead of replace:** opening a backup while this browser has edits
   applies one-sided changes and asks only where both sides changed the same
   field. Category conflicts default to combining both sides; the merge is one

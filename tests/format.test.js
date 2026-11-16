@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { decodeBackup, BackupError, suggestedFileName, thumbnailCandidates } from "../src/format.js";
+import {
+  decodeBackup,
+  BackupError,
+  profileNameFromFile,
+  sanitizeProfileName,
+  suggestedFileName,
+  thumbnailCandidates,
+} from "../src/format.js";
 
 const envelope = {
   format: "tubeshelf.backup",
@@ -138,4 +145,24 @@ test("pinned channels keep YouTube spelling and collapse duplicates", () => {
 test("web exports carry a -web suffix", () => {
   const date = new Date(2026, 10, 15, 13, 0, 0);
   assert.equal(suggestedFileName(date), "TubeShelf 2026-11-15 13.00.00-web.json");
+});
+
+test("backup filenames carry a sanitized profile name", () => {
+  const date = new Date(2026, 10, 15, 13, 0, 0);
+  assert.equal(
+    suggestedFileName(date, "Work / Study"),
+    "TubeShelf Work - Study 2026-11-15 13.00.00-web.json"
+  );
+  assert.equal(
+    profileNameFromFile("TubeShelf Work - Study 2026-11-15 13.00.00-web.json"),
+    "Work - Study"
+  );
+  assert.equal(
+    profileNameFromFile("TubeShelf Work - Study 2026-11-15 13.00.00 PST.json"),
+    "Work - Study"
+  );
+  assert.equal(profileNameFromFile("TubeShelf 2026-11-15 13.00.00 PST.json"), "");
+  assert.equal(profileNameFromFile("demo-shelf.json"), "");
+  assert.equal(sanitizeProfileName('A/B:C*?"<>|'), "A - B - C");
+  assert.equal(sanitizeProfileName("   "), "");
 });

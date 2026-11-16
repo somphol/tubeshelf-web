@@ -1,6 +1,7 @@
 // Google Drive transport for the editable app. Tokens stay in memory; settings
 // (client ID, API key, folder) are public values stored locally. No backend.
 import { DRIVE_DEFAULTS } from "./drive-config.js";
+import { sanitizeProfileName } from "./format.js";
 
 export const DRIVE_SCOPE_FILE = "https://www.googleapis.com/auth/drive.file";
 export const DRIVE_SCOPE_FULL = "https://www.googleapis.com/auth/drive";
@@ -67,8 +68,9 @@ export function stamp(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}.${pad(date.getMinutes())}.${pad(date.getSeconds())}`;
 }
 
-export function backupName(date = new Date()) {
-  return `TubeShelf ${stamp(date)}-web.json`;
+export function backupName(date = new Date(), profileName = "") {
+  const profile = sanitizeProfileName(profileName);
+  return `TubeShelf ${profile ? `${profile} ` : ""}${stamp(date)}-web.json`;
 }
 
 export function autosaveName(date = new Date()) {

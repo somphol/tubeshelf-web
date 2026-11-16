@@ -292,7 +292,28 @@ export function isoNow(date = new Date()) {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-export function suggestedFileName(date = new Date()) {
+export function sanitizeProfileName(raw = "") {
+  return String(raw || "")
+    .replace(/[\/\\:*?"<>|\u0000-\u001f]/g, " - ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[-\s]+|[-\s]+$/g, "")
+    .slice(0, 60)
+    .trim();
+}
+
+/** Read the profile name from a Mac or web backup filename; "" when absent. */
+export function profileNameFromFile(fileName = "") {
+  const stem = String(fileName || "")
+    .replace(/\.json$/i, "")
+    .replace(/-web$/i, "");
+  const match = stem.match(/^TubeShelf (.*?) \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}(?: \S+)?$/);
+  return match ? match[1].trim() : "";
+}
+
+export function suggestedFileName(date = new Date(), profileName = "") {
   const pad = (n) => String(n).padStart(2, "0");
-  return `TubeShelf ${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}.${pad(date.getMinutes())}.${pad(date.getSeconds())}-web.json`;
+  const profile = sanitizeProfileName(profileName);
+  const prefix = profile ? `TubeShelf ${profile} ` : "TubeShelf ";
+  return `${prefix}${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}.${pad(date.getMinutes())}.${pad(date.getSeconds())}-web.json`;
 }

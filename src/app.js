@@ -5,6 +5,7 @@ import {
   formatDuration,
   watchURL,
   suggestedFileName,
+  profileNameFromFile,
 } from "./format.js";
 import {
   createStore,
@@ -1803,12 +1804,16 @@ function hideContextMenu() {
 }
 
 /* ---------- export / undo ---------- */
+function backupProfileName() {
+  return profileNameFromFile(state.store?.fileName || "");
+}
+
 function exportBackup() {
   if (!state.store) return;
   const text = currentBackup(state.store);
   const blob = new Blob([text], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-  const link = el("a", { href: url, download: suggestedFileName() });
+  const link = el("a", { href: url, download: suggestedFileName(new Date(), backupProfileName()) });
   document.body.append(link);
   link.click();
   link.remove();
@@ -2033,7 +2038,7 @@ async function saveNowToFolder() {
     return;
   }
   try {
-    const name = backupName();
+    const name = backupName(new Date(), backupProfileName());
     const text = currentBackup(state.store);
     await writeText(state.folder.handle, name, text);
     markSaved(state.store);
@@ -2383,7 +2388,7 @@ async function saveNowToDrive() {
     return;
   }
   try {
-    const name = backupName();
+    const name = backupName(new Date(), backupProfileName());
     const text = currentBackup(state.store);
     await driveClient().upload({
       name,

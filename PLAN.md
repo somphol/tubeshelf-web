@@ -46,7 +46,7 @@ test users needs Google's Drive-scope review.
 
 ### Save behaviour (implemented)
 
-- Manual **Save now** writes a new timestamped `TubeShelf YYYY-MM-DD HH.MM.SS-web.json`.
+- Manual **Save now** writes a new timestamped `TubeShelf <profile> YYYY-MM-DD HH.MM.SS-web.json`.
 - Never overwrite a morning file.
 - Autosave writes at most **once per hour**, only when the document revision
   changed since the last autosave, to
@@ -63,7 +63,7 @@ test users needs Google's Drive-scope review.
 - File IDs and `modifiedTime` are recorded on open.
 - Timestamped files avoid overwrites; if a newer manual backup appears, show a
   quiet “newer backup in Drive” note, never a modal.
-- One writer at a time remains the workflow; there is no merge.
+- One writer at a time remains the workflow; overlapping edits merge in both apps.
 
 ### Risk
 
@@ -105,4 +105,4 @@ The optional web 3D graph is implemented alongside this phase: a pure
 - A backend, accounts, analytics or uploads.
 - Embedded playback.
 - Automatic playlist scraping; CORS blocks it and a key/proxy is out of scope.
-- Merging two shelves. Restore is replace-only.
+- Merging two different profiles. Restore/merge works within one profile.
