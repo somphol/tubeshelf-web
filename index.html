@@ -13,11 +13,12 @@
 </head>
 <body>
   <header class="topbar">
+    <button class="button side-toggle" id="sidebar-toggle" title="Hide sidebar" aria-label="Toggle sidebar" aria-pressed="false">☰</button>
     <div class="brand">
       <span class="logo" aria-hidden="true"></span>
       <span>TubeShelf</span>
       <span class="badge">editable</span>
-      <span class="version" id="version">v1.0.0</span>
+      <span class="version" id="version">v1.1.0</span>
     </div>
     <div class="file-meta" id="file-meta"></div>
     <div class="topbar-actions">
@@ -29,6 +30,7 @@
       <input type="file" id="file" accept=".json,application/json" hidden>
     </div>
   </header>
+  <div id="sidebar-peek" class="sidebar-peek" hidden></div>
 
   <main id="main" hidden>
     <aside id="sidebar" aria-label="Filters"></aside>

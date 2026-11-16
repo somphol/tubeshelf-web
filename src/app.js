@@ -104,6 +104,9 @@ function el(tag, props = {}, ...children) {
 }
 
 const $ = (selector) => document.querySelector(selector);
+const SIDEBAR_PIN_KEY = "tubeshelf-rw-sidebar-pinned";
+const SIDEBAR_HIDDEN_KEY = "tubeshelf-rw-sidebar-hidden";
+const SECTIONS_KEY = "tubeshelf-rw-sections";
 const state = {
   store: null,
   filter: { kind: "all" },
@@ -112,6 +115,10 @@ const state = {
   page: 0,
   pageSize: 48,
   sidebarQuery: "",
+  sidebarPinned: localStorage.getItem(SIDEBAR_PIN_KEY) !== "0",
+  sidebarHidden: localStorage.getItem(SIDEBAR_HIDDEN_KEY) === "1",
+  sidebarPeek: false,
+  sidebarCollapsed: loadCollapsedSections(),
   context: null,
   draftAt: null,
   base: null,
@@ -640,6 +647,103 @@ function renderMeta() {
   updateDriveButton();
 }
 
+function loadCollapsedSections() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SECTIONS_KEY) || "[]");
+    return new Set(Array.isArray(raw) ? raw.filter((key) => typeof key === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsedSections() {
+  try {
+    localStorage.setItem(SECTIONS_KEY, JSON.stringify([...state.sidebarCollapsed]));
+  } catch {}
+}
+
+function toggleSideSection(key) {
+  if (state.sidebarCollapsed.has(key)) state.sidebarCollapsed.delete(key);
+  else state.sidebarCollapsed.add(key);
+  saveCollapsedSections();
+  renderSidebar();
+}
+
+function effectiveSidebarHidden() {
+  return state.sidebarHidden || (!state.sidebarPinned && state.sidebarPeek);
+}
+
+function applySidebarState() {
+  const main = $("#main");
+  const hidden = effectiveSidebarHidden();
+  if (main) main.classList.toggle("sidebar-hidden", hidden);
+
+  const toggle = $("#sidebar-toggle");
+  if (toggle) {
+    toggle.hidden = !state.store;
+    toggle.setAttribute("aria-pressed", String(hidden));
+    toggle.title = hidden ? "Show sidebar" : "Hide sidebar";
+    toggle.textContent = hidden ? "»" : "☰";
+  }
+
+  const peek = $("#sidebar-peek");
+  if (peek) {
+    peek.hidden = !state.store || !(!state.sidebarPinned && !state.sidebarHidden && state.sidebarPeek);
+  }
+
+  const pin = $("#sidebar-pin");
+  if (pin) {
+    pin.setAttribute("aria-pressed", String(state.sidebarPinned));
+    pin.textContent = state.sidebarPinned ? "Pinned" : "Pin";
+    pin.title = state.sidebarPinned
+      ? "Unpin the sidebar (auto-hide when the pointer leaves)"
+      : "Pin the sidebar open";
+  }
+}
+
+function toggleSidebarVisibility() {
+  if (state.sidebarHidden) {
+    state.sidebarHidden = false;
+    state.sidebarPeek = false;
+  } else if (!state.sidebarPinned && state.sidebarPeek) {
+    state.sidebarPeek = false;
+  } else {
+    state.sidebarHidden = true;
+    state.sidebarPeek = false;
+  }
+  try {
+    localStorage.setItem(SIDEBAR_HIDDEN_KEY, state.sidebarHidden ? "1" : "0");
+  } catch {}
+  applySidebarState();
+}
+
+let sidebarHideTimer = null;
+
+function scheduleSidebarHide() {
+  clearTimeout(sidebarHideTimer);
+  if (state.sidebarPinned || state.sidebarHidden) return;
+  if (!$("#context-menu").hidden) return;
+  if (window.matchMedia("(max-width: 900px)").matches) return;
+  sidebarHideTimer = setTimeout(() => {
+    state.sidebarPeek = true;
+    applySidebarState();
+  }, 650);
+}
+
+function toggleSidebarPin() {
+  state.sidebarPinned = !state.sidebarPinned;
+  try {
+    localStorage.setItem(SIDEBAR_PIN_KEY, state.sidebarPinned ? "1" : "0");
+  } catch {}
+  if (state.sidebarPinned) {
+    state.sidebarHidden = false;
+    state.sidebarPeek = false;
+    try { localStorage.setItem(SIDEBAR_HIDDEN_KEY, "0"); } catch {}
+  }
+  applySidebarState();
+  if (!state.sidebarPinned && !$("#sidebar").matches(":hover")) scheduleSidebarHide();
+}
+
 function renderSidebar() {
   const store = state.store;
   const sidebar = $("#sidebar");
@@ -658,7 +762,17 @@ function renderSidebar() {
           state.sidebarQuery = event.target.value;
           renderSidebar();
         },
-      })
+      }),
+      el("button", {
+        class: "side-pin",
+        id: "sidebar-pin",
+        type: "button",
+        title: state.sidebarPinned
+          ? "Unpin the sidebar (auto-hide when the pointer leaves)"
+          : "Pin the sidebar open",
+        "aria-pressed": String(state.sidebarPinned),
+        onclick: toggleSidebarPin,
+      }, state.sidebarPinned ? "Pinned" : "Pin")
     )
   );
 
@@ -668,7 +782,7 @@ function renderSidebar() {
     row("Favorites", videos.filter((video) => video.isFavorite).length, { kind: "favorites" }),
     row("Unwatched", videos.filter((video) => video.watchStatus !== "done").length, { kind: "unwatched" }),
     row("Unsorted", videos.filter((video) => video.tags.length === 0).length, { kind: "unsorted" }),
-  ]));
+  ], "library", 4, Boolean(needle)));
 
   const pinnedTags = store.pinnedTags
     .map((pin) => categories.find((entry) => entry.name.toLowerCase() === pin.toLowerCase()))
@@ -683,7 +797,7 @@ function renderSidebar() {
     sidebar.append(sideList("Pinned", [
       ...pinnedTags.map((entry) => categoryRow(entry, true)),
       ...pinnedChannels.map((entry) => channelRow(entry, true)),
-    ]));
+    ], "pinned", pinnedTags.length + pinnedChannels.length, Boolean(needle)));
   }
 
   const pinnedKeys = new Set(store.pinnedTags.map((pin) => pin.toLowerCase()));
@@ -692,7 +806,8 @@ function renderSidebar() {
     .filter(keep);
   sidebar.append(sideList("Categories", rest.length
     ? rest.map((entry) => categoryRow(entry, false))
-    : [el("div", { class: "side-empty", text: "No categories yet" })]));
+    : [el("div", { class: "side-empty", text: "No categories yet" })],
+    "categories", rest.length, Boolean(needle)));
 
   const channelKeys = new Set(store.pinnedChannels.map((pin) => pin.toLowerCase()));
   const channelRows = channels
@@ -700,13 +815,27 @@ function renderSidebar() {
     .filter(keep)
     .slice(0, 14)
     .map((entry) => channelRow(entry, false));
-  if (channelRows.length) sidebar.append(sideList("Channels", channelRows));
+  if (channelRows.length) {
+    sidebar.append(sideList("Channels", channelRows, "channels", channelRows.length, Boolean(needle)));
+  }
+  applySidebarState();
 }
 
-function sideList(title, rows) {
-  return el("section", {},
-    el("h3", { text: title }),
-    el("ul", { class: "side-list" }, rows.map((node) => el("li", {}, node)))
+function sideList(title, rows, key, count, searching = false) {
+  const collapsed = !searching && state.sidebarCollapsed.has(key);
+  return el("section", { class: collapsed ? "side-section collapsed" : "side-section" },
+    el("button", {
+      class: "side-head",
+      type: "button",
+      "aria-expanded": String(!collapsed),
+      title: `${collapsed ? "Expand" : "Collapse"} ${title}`,
+      onclick: () => toggleSideSection(key),
+    },
+      el("span", { class: "chevron", text: collapsed ? "▸" : "▾" }),
+      el("span", { class: "side-title", text: title }),
+      el("span", { class: "side-count", text: String(count) })
+    ),
+    el("ul", { class: "side-list", hidden: collapsed }, rows.map((node) => el("li", {}, node)))
   );
 }
 
@@ -1355,13 +1484,19 @@ function openEditor(youtubeID) {
     onkeydown: (event) => {
       if (event.key !== "Enter") return;
       event.preventDefault();
-      const tag = canonicalTag(event.target.value);
-      if (!tag) return;
-      if (!working.tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) working.tags.push(tag);
-      event.target.value = "";
-      paintTags();
+      commitTypedCategory();
     },
   });
+
+  function commitTypedCategory() {
+    const tag = canonicalTag(input.value);
+    if (!tag) return;
+    if (!working.tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+      working.tags.push(tag);
+    }
+    input.value = "";
+    paintTags();
+  }
 
   function paintTags() {
     tagsBox.replaceChildren(...working.tags.map((tag) =>
@@ -1477,6 +1612,7 @@ function openEditor(youtubeID) {
       el("button", {
         class: "button primary",
         onclick: () => {
+          commitTypedCategory();
           saveVideo(state.store, youtubeID, working);
           closeModal("#editor-modal");
           changed();
@@ -1558,7 +1694,27 @@ function openAdd() {
     type: "url",
     placeholder: "https://www.youtube.com/watch?v=…",
   });
+  const categoryInput = el("input", {
+    type: "text",
+    placeholder: "Type your category, or pick one below",
+    list: listId,
+    onkeydown: (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      commitTypedCategory();
+    },
+  });
   const status = el("div", { class: "tag-hint" });
+
+  function commitTypedCategory() {
+    const tag = canonicalTag(categoryInput.value);
+    if (!tag) return;
+    if (!working.tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+      working.tags.push(tag);
+    }
+    categoryInput.value = "";
+    paintTags();
+  }
 
   function paintTags() {
     tagBox.replaceChildren(...working.tags.map((tag) =>
@@ -1708,20 +1864,7 @@ function openAdd() {
       el("div", { class: "field-label", text: "Categories" }),
       tagBox,
       el("div", { class: "tag-entry" },
-        el("input", {
-          type: "text",
-          placeholder: "Type your category, or pick one below",
-          list: listId,
-          onkeydown: (event) => {
-            if (event.key !== "Enter") return;
-            event.preventDefault();
-            const tag = canonicalTag(event.target.value);
-            if (!tag) return;
-            if (!working.tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) working.tags.push(tag);
-            event.target.value = "";
-            paintTags();
-          },
-        }),
+        categoryInput,
         el("button", { class: "button", onclick: suggest }, "Suggest")
       ),
       datalist,
@@ -1758,6 +1901,7 @@ function openAdd() {
             toast("A title is required.");
             return;
           }
+          commitTypedCategory();
           if (!working.tags.length && !confirm("No category selected. Add this video as Unsorted?")) {
             return;
           }
@@ -2874,6 +3018,26 @@ async function startDriveOpen() {
 }
 
 /* ---------- events ---------- */
+$("#sidebar-toggle").addEventListener("click", toggleSidebarVisibility);
+$("#sidebar").addEventListener("mouseenter", () => {
+  clearTimeout(sidebarHideTimer);
+  if (!state.sidebarHidden && state.sidebarPeek) {
+    state.sidebarPeek = false;
+    applySidebarState();
+  }
+});
+$("#sidebar").addEventListener("mouseleave", scheduleSidebarHide);
+$("#sidebar-peek").addEventListener("mouseenter", () => {
+  if (state.sidebarPinned || state.sidebarHidden) return;
+  state.sidebarPeek = false;
+  applySidebarState();
+});
+window.addEventListener("resize", () => {
+  clearTimeout(sidebarHideTimer);
+  if (window.matchMedia("(max-width: 900px)").matches) state.sidebarPeek = false;
+  applySidebarState();
+});
+
 $("#open").addEventListener("click", () => {
   if (configured()) {
     openDrivePanel("open");
@@ -2954,7 +3118,10 @@ document.addEventListener("keydown", (event) => {
   }
   const meta = event.metaKey || event.ctrlKey;
   if (!meta) return;
-  if (event.key.toLowerCase() === "s") {
+  if (event.key === "\\") {
+    event.preventDefault();
+    toggleSidebarVisibility();
+  } else if (event.key.toLowerCase() === "s") {
     event.preventDefault();
     exportBackup();
   } else if (event.key.toLowerCase() === "n") {
@@ -3057,10 +3224,12 @@ function showLanding() {
   $("#add").disabled = true;
   $("#export").disabled = true;
   $("#undo").disabled = true;
+  applySidebarState();
 }
 
 /* ---------- boot / draft ---------- */
 (async () => {
+  applySidebarState();
   updateLanding();
   updateDriveButton();
   restoreFolder();

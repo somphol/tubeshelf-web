@@ -43,7 +43,18 @@ npm run test:e2e:clipboard
 ```
 
 It opens **Add video** with a YouTube URL on the fake clipboard, asserts the URL
-field fills, and checks the title and channel resolve without a network call.
+field fills, checks the title and channel resolve without a network call, types a
+category without Return, and adds the video with that category and no warning.
+
+For the sidebar:
+
+```bash
+npm run test:e2e:sidebar
+```
+
+It folds and reopens a section, hides and shows the bar, unpins it, checks the
+650 ms pointer-leave auto-hide and left-edge reveal, pins it again, reloads to
+prove folds and pin persist, and checks the flat 390 px strip.
 
 For the slide deck (including card click and right-click):
 

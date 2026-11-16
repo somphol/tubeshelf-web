@@ -24,6 +24,8 @@ Implemented and manually verified on 2026-11-15:
 - Category pin/rename/merge/delete; channel pins.
 - Add video reads a YouTube link from the clipboard on open, then resolves oEmbed;
   **Paste** retries explicitly and manual typing always works.
+- Sidebar sections fold independently and remember; the whole bar hides with
+  **☰**/⌘\, **Pin** stops pointer-leave auto-hide, and the left edge reveals it.
 - Three-way merge when opening a backup over local edits: one-sided changes are
   applied, conflicts ask per field, tags default to Both, and the merge is one
   undo step. The base is stored with the draft.
@@ -40,7 +42,7 @@ Implemented and manually verified on 2026-11-15:
 - Existing-category chips and type-ahead in the editor/add sheet; learned
   keyword profiles from the person's own filing and channel affinity.
 - A new video with no category requires confirmation before it becomes Unsorted.
-- 72 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
+- 73 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
 
 Not implemented: live OAuth verification (no credentials in the repo), course
 editing, bulk selection, in-place file save, redo UI, AI tagging.
@@ -48,12 +50,13 @@ editing, bulk selection, in-place file save, redo UI, AI tagging.
 ## Commands
 
 ```bash
-npm test                           # 72 unit tests (dev-only puppeteer dependency)
+npm test                           # 73 unit tests (dev-only puppeteer dependency)
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 npm run test:e2e                   # fake Google OAuth + Drive, server must be running
 npm run test:e2e:folder            # no-OAuth local Drive folder save/open/autosave
 npm run test:e2e:clipboard         # auto-fill from the clipboard + oEmbed stub
+npm run test:e2e:sidebar           # fold, hide, pin, auto-hide, mobile strip
 npm run test:e2e:merge             # conflicts, undo, base persistence, 390 px
 npm run test:e2e:deck              # presentation flow at 1240 px and 390 px
 npm run test:e2e:graph             # 3D canvas, labels, click-to-filter, destroy
@@ -180,6 +183,10 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   existing categories as chips and a datalist so the user can file explicitly.
   Do not turn profile words into strong keywords; noisy categories then beat
   Math/Finance/Education on incidental words.
+- **Typed categories are committed before validation.** The Add and editor Save
+  handlers call `commitTypedCategory` so text sitting in the category field is
+  canonicalised and applied even if Return was never pressed. Do not warn about
+  an empty category while a valid value is still in the input.
 - **A new uncategorised video is confirmed.** Both the Mac app and this app ask
   before adding it as Unsorted. Do not make the button a silent path.
 - **Guest rules are deliberate.** Titles and the user's note are the only text
@@ -199,6 +206,16 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   autosaves do not move it. It is persisted as `baseText` beside the draft so a
   reload keeps the common ancestor. Old drafts without `baseText` fall back to a
   conservative two-way review (every difference is a conflict).
+- **The sidebar is foldable, hideable and pinnable.** Section folds persist under
+  `tubeshelf-rw-sections`, manual visibility under `tubeshelf-rw-sidebar-hidden`,
+  and pinning under `tubeshelf-rw-sidebar-pinned`. Unpinned auto-hides only after
+  the pointer leaves on desktop and is revealed by the 10 px left edge or **☰**.
+  Pinning or manual hiding wins over auto-hide. On `max-width: 900px` the section
+  headers disappear and folded rows are forced visible; never let fold state hide
+  the mobile filter strip.
+- **The web version is source, not generated.** `src/version.js`, `package.json`
+  and the `index.html` fallback must match; `tests/version.test.js` enforces the
+  JS/package pair and the HTML fallback. Bump it with UI changes.
 - **The local copy is automatic and silent.** A single IndexedDB record under
   `draft` holds the last shelf, written 1.2 s after load or change. On boot it is
   restored with no banner; the file meta shows `local copy HH:MM`. **Backups →

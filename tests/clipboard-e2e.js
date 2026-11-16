@@ -9,6 +9,11 @@ const browser = await puppeteer.launch({ executablePath: CHROME, headless: "new"
 try {
   const page = await browser.newPage();
   const errors = [];
+  const dialogs = [];
+  page.on("dialog", async (dialog) => {
+    dialogs.push(dialog.message());
+    await dialog.dismiss();
+  });
   page.on("pageerror", (error) => errors.push(String(error)));
   page.on("console", (message) => {
     if (message.type() === "error" && !/404|Failed to load resource/.test(message.text())) {
@@ -19,7 +24,7 @@ try {
   await page.evaluateOnNewDocument(() => {
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
-      value: { readText: async () => "https://youtu.be/dQw4w9WgXcQ?si=clipboard" },
+      value: { readText: async () => "https://youtu.be/kJQP7kiw5Fk?si=clipboard" },
     });
     const realFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
@@ -42,7 +47,7 @@ try {
   await wait(800);
 
   const filled = await page.$eval('#add-body input[type="url"]', (node) => node.value);
-  assert.ok(filled.includes("dQw4w9WgXcQ"), "the clipboard URL fills the field");
+  assert.ok(filled.includes("kJQP7kiw5Fk"), "the clipboard URL fills the field");
   assert.equal(
     await page.$eval('#add-body input[placeholder="Title"]', (node) => node.value),
     "Clipboard video",
@@ -53,9 +58,24 @@ try {
     "Clipboard channel"
   );
 
-  await page.click("#add-close");
+  await page.type('#add-body input[list="add-category-list"]', "Archive");
+  await page.evaluate(() => {
+    [...document.querySelectorAll("#add-body .modal-actions button")]
+      .find((node) => node.textContent === "Add to shelf")
+      .click();
+  });
+  await wait(500);
+  assert.equal(await page.$eval("#add-modal", (node) => node.hidden), true, "the video is added");
+  assert.equal(await page.$$eval(".card", (nodes) => nodes.length), 8);
+  const tags = await page.$$eval(".card", (cards) => {
+    const card = cards.find((node) => node.querySelector(".card-title")?.textContent === "Clipboard video");
+    return card ? [...card.querySelectorAll(".chip")].map((node) => node.textContent) : null;
+  });
+  assert.ok(tags?.includes("Archive"), "the uncommitted category is used");
+  assert.deepEqual(dialogs, [], "no empty-category warning");
+
   assert.deepEqual(errors, [], "no page errors");
-  console.log(JSON.stringify({ filled, errors }, null, 2));
+  console.log(JSON.stringify({ filled, tags, dialogs, errors }, null, 2));
 } finally {
   await browser.close();
 }

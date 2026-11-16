@@ -110,7 +110,7 @@ try {
   await wait(1700);
   await page.reload({ waitUntil: "networkidle2" });
   await wait(800);
-  assert.equal(await page.$eval("#draft-banner", (node) => node.hidden), false, "draft banner appears");
+  assert.equal(await page.$("#draft-banner"), null, "no draft banner");
   assert.equal(await storeValue('window.__tubeshelfTest.state.store.videos.find(v => v.youtubeID === "VEtU4Co08yY").note'), "note before reload");
   assert.equal(await storeValue("window.__tubeshelfTest.state.base !== null"), true, "merge base survives reload");
 

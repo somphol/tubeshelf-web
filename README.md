@@ -39,11 +39,16 @@ start editing.
 - Add a video by URL: opening the sheet reads a YouTube link from the clipboard
   when the browser allows it, then fills the title and channel from oEmbed and
   suggests categories. **Paste** retries explicitly; typing always works.
+  A category typed but not entered is still used when you press **Add**/Save.
   Duplicate IDs are refused.
 - Adding a new video with **no category** asks for confirmation; it is never
   silently filed as Unsorted.
 - Category actions: pin/unpin, rename, merge into another category, delete.
 - Pin channels alongside categories.
+- **Sidebar controls:** LIBRARY, PINNED, CATEGORIES and CHANNELS fold
+  independently and remember it. **☰** (or **⌘\**) hides the bar; **Pin** keeps
+  it open, while unpinned it auto-hides when the pointer leaves and returns from
+  the left edge. Mobile keeps the flat filter strip.
 - **Slide deck:** click any card, or press **Present** in the header, to show the
   current list full-screen starting at that video. Arrow keys, Home/End, mouse
   wheel, or the filmstrip move between slides; tags filter the shelf, **Edit**
@@ -99,10 +104,11 @@ and snapshots; clearing site data removes them.
   app's schema; preserve unknown fields).
 - Handoff: [AGENTS.md](AGENTS.md) — architecture, decisions, gaps, Drive plan.
 - Plan: [PLAN.md](PLAN.md).
-- Tests: `npm test` (72 tests); browser proof: `npm run test:e2e` (fake Google
+- Tests: `npm test` (73 tests); browser proof: `npm run test:e2e` (fake Google
   OAuth + Drive, no credentials), `npm run test:e2e:folder` (no-OAuth folder),
   `npm run test:e2e:clipboard` (clipboard autofill), `npm run test:e2e:merge`
-  (conflicts, undo and reload), `npm run test:e2e:deck` (presentation flow) and
+  (conflicts, undo and reload), `npm run test:e2e:sidebar` (fold, hide, pin and
+  auto-hide), `npm run test:e2e:deck` (presentation flow) and
   `npm run test:e2e:graph` (WebGL + labels).
   Notes in [tests/E2E.md](tests/E2E.md). Drive setup: [DRIVE.md](DRIVE.md).
 - The Mac app is public: <https://github.com/somphol/tubeshelf>.
