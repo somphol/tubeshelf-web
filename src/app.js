@@ -16,6 +16,7 @@ import {
   counts,
   markSaved,
   saveVideo,
+  setVideoTags,
   deleteVideo,
   addVideo,
   newVideo,
@@ -1223,6 +1224,7 @@ function videoCard(video) {
 
   return el("button", {
     class: "card",
+    dataset: { youtubeId: video.youtubeID },
     title: "Open slide · right-click to edit",
     onclick: () => presentVideo(video),
     oncontextmenu: (event) => {
@@ -1541,6 +1543,33 @@ function openEditor(youtubeID) {
     paintTags();
   }
 
+  function updateAddButton() {
+    const duplicate = Boolean(working.id) && hasDuplicate(state.store, working.id);
+    addButton.textContent = duplicate ? "Update categories" : "Add to shelf";
+    addButton.disabled = false;
+    addButton.title = duplicate ? "Apply the categories above to the existing video" : "";
+  }
+
+  function showExisting() {
+    if (!working.id) return;
+    closeModal("#add-modal");
+    revealVideo(working.id);
+  }
+
+  function updateExistingCategories() {
+    if (!working.id) return;
+    commitTypedCategory();
+    if (!working.tags.length) {
+      toast("Pick at least one category to update.");
+      return;
+    }
+    setVideoTags(state.store, working.id, working.tags);
+    closeModal("#add-modal");
+    changed();
+    revealVideo(working.id);
+    toast("Categories updated");
+  }
+
   function paintTags() {
     tagsBox.replaceChildren(...working.tags.map((tag) =>
       el("span", { class: "tag-chip" }, tag,
@@ -1695,6 +1724,27 @@ function thumbnail(videoID) {
   return coverImage(videoID, () => {});
 }
 
+function revealVideo(youtubeID) {
+  if (!state.store) return;
+  state.view = "grid";
+  state.filter = { kind: "all" };
+  state.query = "";
+  state.scope = "everything";
+  state.sidebarQuery = "";
+  state.page = 0;
+  const items = currentVideos();
+  const index = items.findIndex((video) => video.youtubeID === youtubeID);
+  if (index !== -1) state.page = Math.floor(index / state.pageSize);
+  renderAll();
+  requestAnimationFrame(() => {
+    const card = document.querySelector(`.card[data-youtube-id="${youtubeID}"]`);
+    if (!card) return;
+    card.scrollIntoView({ block: "center", behavior: "smooth" });
+    card.classList.add("card-flash");
+    setTimeout(() => card.classList.remove("card-flash"), 1800);
+  });
+}
+
 /* ---------- add ---------- */
 function openAdd() {
   const working = {
@@ -1705,6 +1755,7 @@ function openAdd() {
     note: "",
     suggestions: [],
     fetching: false,
+    tagsSeeded: false,
   };
   const body = $("#add-body");
   body.replaceChildren();
@@ -1748,6 +1799,7 @@ function openAdd() {
     },
   });
   const status = el("div", { class: "tag-hint" });
+  const duplicateBox = el("div", { class: "duplicate-box", hidden: true });
 
   function commitTypedCategory() {
     const tag = canonicalTag(categoryInput.value);
@@ -1757,6 +1809,33 @@ function openAdd() {
     }
     categoryInput.value = "";
     paintTags();
+  }
+
+  function updateAddButton() {
+    const duplicate = Boolean(working.id) && hasDuplicate(state.store, working.id);
+    addButton.textContent = duplicate ? "Update categories" : "Add to shelf";
+    addButton.disabled = false;
+    addButton.title = duplicate ? "Apply the categories above to the existing video" : "";
+  }
+
+  function showExisting() {
+    if (!working.id) return;
+    closeModal("#add-modal");
+    revealVideo(working.id);
+  }
+
+  function updateExistingCategories() {
+    if (!working.id) return;
+    commitTypedCategory();
+    if (!working.tags.length) {
+      toast("Pick at least one category to update.");
+      return;
+    }
+    setVideoTags(state.store, working.id, working.tags);
+    closeModal("#add-modal");
+    changed();
+    revealVideo(working.id);
+    toast("Categories updated");
   }
 
   function paintTags() {
@@ -1787,6 +1866,7 @@ function openAdd() {
       paintTags();
     });
     warning.hidden = working.tags.length > 0;
+    updateAddButton();
   }
 
   function suggest() {
@@ -1812,9 +1892,36 @@ function openAdd() {
         el("div", { class: "tag-hint", text: working.id })
       )
     );
-    status.textContent = hasDuplicate(state.store, working.id)
-      ? "This video is already on the shelf."
-      : "";
+    const duplicate = hasDuplicate(state.store, working.id);
+    status.textContent = "";
+    duplicateBox.hidden = !duplicate;
+    if (duplicate) {
+      const existing = videoByYoutubeID(state.store, working.id);
+      if (!working.tagsSeeded) {
+        for (const tag of existing?.tags || []) {
+          if (!working.tags.some((current) => current.toLowerCase() === tag.toLowerCase())) {
+            working.tags.push(tag);
+          }
+        }
+        working.tagsSeeded = true;
+        paintTags();
+      }
+      const existingTags = existing?.tags || [];
+      duplicateBox.replaceChildren(
+        el("div", {
+          class: "tag-hint",
+          text: existingTags.length
+            ? "This video is already on the shelf. Existing categories are loaded above."
+            : "This video is already on the shelf. Add a category above to update it.",
+        }),
+        el("div", { class: "drive-actions" },
+          el("button", { class: "button", onclick: showExisting }, "Show existing card")
+        )
+      );
+    } else {
+      duplicateBox.replaceChildren();
+    }
+    updateAddButton();
   }
 
   let fetchButton = null;
@@ -1826,10 +1933,8 @@ function openAdd() {
       toast("Paste a YouTube link with an 11-character video ID.");
       return;
     }
+    if (working.id !== id) working.tagsSeeded = false;
     working.id = id;
-    if (hasDuplicate(state.store, working.id)) {
-      toast("That video is already on the shelf.");
-    }
     working.fetching = true;
     if (fetchButton) {
       fetchButton.disabled = true;
@@ -1888,6 +1993,39 @@ function openAdd() {
     },
   }, "Paste");
 
+  const addButton = el("button", {
+    class: "button primary",
+    onclick: () => {
+      if (!working.id) {
+        toast("Paste a YouTube link first.");
+        return;
+      }
+      if (hasDuplicate(state.store, working.id)) {
+        updateExistingCategories();
+        return;
+      }
+      if (!working.title.trim()) {
+        toast("A title is required.");
+        return;
+      }
+      commitTypedCategory();
+      if (!working.tags.length && !confirm("No category selected. Add this video as Unsorted?")) {
+        return;
+      }
+      const video = newVideo({
+        youtubeID: working.id,
+        title: working.title,
+        channel: working.channel,
+        tags: working.tags,
+        note: working.note,
+      });
+      addVideo(state.store, video);
+      closeModal("#add-modal");
+      changed();
+      toast("Video added");
+    },
+  }, "Add to shelf");
+
   body.append(
     el("div", { class: "field" },
       el("label", { text: "YouTube link" }),
@@ -1895,6 +2033,7 @@ function openAdd() {
       el("div", { class: "tag-hint", text: "Copy a YouTube link; this sheet fills it automatically, or press Paste." })
     ),
     preview,
+    duplicateBox,
     el("div", { class: "field" },
       el("label", { text: "Title" }),
       titleInput
@@ -1929,38 +2068,7 @@ function openAdd() {
     el("div", { class: "modal-actions" },
       el("span", { class: "grow" }),
       el("button", { class: "button", onclick: () => closeModal("#add-modal") }, "Cancel"),
-      el("button", {
-        class: "button primary",
-        onclick: () => {
-          if (!working.id) {
-            toast("Paste a YouTube link first.");
-            return;
-          }
-          if (hasDuplicate(state.store, working.id)) {
-            toast("That video is already on the shelf.");
-            return;
-          }
-          if (!working.title.trim()) {
-            toast("A title is required.");
-            return;
-          }
-          commitTypedCategory();
-          if (!working.tags.length && !confirm("No category selected. Add this video as Unsorted?")) {
-            return;
-          }
-          const video = newVideo({
-            youtubeID: working.id,
-            title: working.title,
-            channel: working.channel,
-            tags: working.tags,
-            note: working.note,
-          });
-          addVideo(state.store, video);
-          closeModal("#add-modal");
-          changed();
-          toast("Video added");
-        },
-      }, "Add to shelf")
+      addButton
     )
   );
   paintTags();

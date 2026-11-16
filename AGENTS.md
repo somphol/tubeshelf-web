@@ -23,7 +23,8 @@ Implemented and manually verified on 2026-11-15:
 - Add by URL via YouTube oEmbed, duplicate guard.
 - Category pin/rename/merge/delete; channel pins.
 - Add video reads a YouTube link from the clipboard on open, then resolves oEmbed;
-  **Paste** retries explicitly and manual typing always works.
+  **Paste** retries explicitly and manual typing always works. A duplicate loads
+  its categories, offers **Show existing card**, and updates categories in place.
 - Sidebar sections fold independently and remember; the whole bar hides with
   **☰**/⌘\, **Pin** stops pointer-leave auto-hide, and the left edge reveals it.
 - Three-way merge when opening a backup over local edits: one-sided changes are
@@ -57,6 +58,7 @@ open http://localhost:8770/
 npm run test:e2e                   # fake Google OAuth + Drive, server must be running
 npm run test:e2e:folder            # no-OAuth local Drive folder save/open/autosave
 npm run test:e2e:clipboard         # auto-fill from the clipboard + oEmbed stub
+npm run test:e2e:duplicate         # existing card + in-place category update
 npm run test:e2e:sidebar           # fold, hide, pin, auto-hide, mobile strip
 npm run test:e2e:merge             # conflicts, undo, base persistence, 390 px
 npm run test:e2e:deck              # presentation flow at 1240 px and 390 px
@@ -188,6 +190,11 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   existing categories as chips and a datalist so the user can file explicitly.
   Do not turn profile words into strong keywords; noisy categories then beat
   Math/Finance/Education on incidental words.
+- **A duplicate becomes an update, not an error.** When the fetched ID is already
+  on the shelf, seed the sheet with the existing tags, show **Show existing
+  card**, and change the primary action to **Update categories**. Update replaces
+  tags only and leaves note/watch state alone; `revealVideo` resets to All, pages
+  to the card and flashes it. Never create a second card for the same ID.
 - **Typed categories are committed before validation.** The Add and editor Save
   handlers call `commitTypedCategory` so text sitting in the category field is
   canonicalised and applied even if Return was never pressed. Do not warn about

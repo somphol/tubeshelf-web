@@ -47,6 +47,15 @@ It opens **Add video** with a YouTube URL on the fake clipboard, asserts the URL
 field fills, checks the title and channel resolve without a network call, types a
 category without Return, and adds the video with that category and no warning.
 
+For an existing video in the Add sheet:
+
+```bash
+npm run test:e2e:duplicate
+```
+
+It fetches a link already on the shelf, checks the existing categories load, edits
+them, updates the card in place, and uses **Show existing card** on a second try.
+
 For the sidebar:
 
 ```bash

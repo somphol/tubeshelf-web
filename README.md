@@ -40,7 +40,9 @@ start editing.
   when the browser allows it, then fills the title and channel from oEmbed and
   suggests categories. **Paste** retries explicitly; typing always works.
   A category typed but not entered is still used when you press **Add**/Save.
-  Duplicate IDs are refused.
+  If the link is already saved, the sheet loads that video's categories, offers
+  **Show existing card**, and changes Add to **Update categories** instead of
+  creating a duplicate.
 - Adding a new video with **no category** asks for confirmation; it is never
   silently filed as Unsorted.
 - Category actions: pin/unpin, rename, merge into another category, delete.
@@ -110,10 +112,11 @@ and snapshots; clearing site data removes them.
 - Plan: [PLAN.md](PLAN.md).
 - Tests: `npm test` (73 tests); browser proof: `npm run test:e2e` (fake Google
   OAuth + Drive, no credentials), `npm run test:e2e:folder` (no-OAuth folder),
-  `npm run test:e2e:clipboard` (clipboard autofill), `npm run test:e2e:merge`
-  (conflicts, undo and reload), `npm run test:e2e:sidebar` (fold, hide, pin and
-  auto-hide), `npm run test:e2e:deck` (presentation flow) and
-  `npm run test:e2e:graph` (WebGL + labels).
+  `npm run test:e2e:clipboard` (clipboard autofill), `npm run test:e2e:duplicate`
+  (existing card + category update), `npm run test:e2e:merge` (conflicts, undo
+  and reload), `npm run test:e2e:sidebar` (fold, hide, pin and auto-hide),
+  `npm run test:e2e:deck` (presentation flow) and `npm run test:e2e:graph`
+  (WebGL + labels).
   Notes in [tests/E2E.md](tests/E2E.md). Drive setup: [DRIVE.md](DRIVE.md).
 - The Mac app is public: <https://github.com/somphol/tubeshelf>.
 

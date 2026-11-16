@@ -928,3 +928,18 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
   background: rgba(255, 255, 255, 0.02);
   border-radius: 11px;
 }
+
+.duplicate-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(124, 92, 240, 0.35);
+  background: rgba(124, 92, 240, 0.09);
+  border-radius: 10px;
+}
+.duplicate-box .tag-hint { margin: 0; color: var(--muted); }
+.card.card-flash {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(229, 72, 77, 0.45);
+}
