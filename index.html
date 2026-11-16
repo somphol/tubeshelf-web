@@ -4,9 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self' https://accounts.google.com https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src https://i.ytimg.com data:; connect-src https://www.youtube.com https://www.youtube-nocookie.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://content.googleapis.com; frame-src https://accounts.google.com https://docs.google.com https://content.googleapis.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+        content="default-src 'none'; script-src 'self' https://accounts.google.com https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://i.ytimg.com data:; connect-src https://www.youtube.com https://www.youtube-nocookie.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://content.googleapis.com; frame-src https://accounts.google.com https://docs.google.com https://content.googleapis.com; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>TubeShelf — editable</title>
+  <meta name="theme-color" content="#0f1013">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,6 +17,7 @@
       <span class="logo" aria-hidden="true"></span>
       <span>TubeShelf</span>
       <span class="badge">editable</span>
+      <span class="version" id="version">v1.0.0</span>
     </div>
     <div class="file-meta" id="file-meta"></div>
     <div class="topbar-actions">
@@ -34,6 +37,7 @@
 
   <section id="landing">
     <div class="landing-card">
+      <span class="logo landing-logo" aria-hidden="true"></span>
       <h1>Open a shelf to edit</h1>
       <p>
         Pick a <code>tubeshelf.backup</code> or <code>library.json</code> from the Mac app.

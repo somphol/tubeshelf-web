@@ -75,14 +75,30 @@ button { font: inherit; color: inherit; }
   z-index: 20;
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+.version { color: var(--faint); font-size: 10px; font-weight: 500; letter-spacing: 0.02em; }
 .logo {
-  width: 18px; height: 18px; border-radius: 5px;
+  width: 26px; height: 26px; border-radius: 7px;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   position: relative;
+  flex: none;
 }
 .logo::after {
-  content: ""; position: absolute; left: 6.5px; top: 5px;
-  border-left: 7px solid #fff; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  content: ""; position: absolute; left: 9.5px; top: 7.5px;
+  border-left: 11px solid #fff; border-top: 5.5px solid transparent; border-bottom: 5.5px solid transparent;
+}
+.landing-logo {
+  display: block;
+  width: 56px; height: 56px; border-radius: 15px;
+  margin: 0 auto 18px;
+  box-shadow: 0 12px 34px rgba(229, 72, 77, 0.28);
+}
+.landing-logo::after {
+  left: 21px; top: 16px;
+  border-left: 22px solid #fff; border-top: 12px solid transparent; border-bottom: 12px solid transparent;
+}
+.landing-logo::before {
+  content: ""; position: absolute; left: 16px; right: 16px; bottom: 10px;
+  height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.55);
 }
 .file-meta { color: var(--muted); font-size: 12px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar-actions { display: flex; gap: 8px; }
@@ -416,6 +432,7 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
 @media (max-width: 600px) {
   .topbar { gap: 8px; padding: 8px 10px; }
   .brand .badge { display: none; }
+  .version { font-size: 9px; }
   .file-meta { display: none; }
   #choose { padding: 5px 8px; font-size: 12px; }
   #content { padding: 14px 12px 32px; }

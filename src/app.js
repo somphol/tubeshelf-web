@@ -49,6 +49,7 @@ import {
 } from "./tagger.js";
 import { demoBackup } from "./demo.js";
 import { HAS_DRIVE_DEFAULTS } from "./drive-config.js";
+import { WEB_VERSION } from "./version.js";
 import {
   folderSupported,
   pickFolder,
@@ -152,6 +153,12 @@ const state = {
     })(),
   },
 };
+
+const versionNode = $("#version");
+if (versionNode) {
+  versionNode.textContent = `v${WEB_VERSION}`;
+  versionNode.title = `TubeShelf Web ${WEB_VERSION}`;
+}
 
 const SNAPSHOT_KEY = "tubeshelf-rw-snapshots";
 
