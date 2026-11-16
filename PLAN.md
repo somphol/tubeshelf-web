@@ -46,7 +46,7 @@ test users needs Google's Drive-scope review.
 
 ### Save behaviour (implemented)
 
-- Manual **Save now** writes a new timestamped `TubeShelf YYYY-MM-DD HH.MM.SS.json`.
+- Manual **Save now** writes a new timestamped `TubeShelf YYYY-MM-DD HH.MM.SS-web.json`.
 - Never overwrite a morning file.
 - Autosave writes at most **once per hour**, only when the document revision
   changed since the last autosave, to

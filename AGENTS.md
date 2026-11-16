@@ -137,6 +137,9 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   playlists; edits patch known fields only. `buildBackup` spreads the original
   envelope/library so future fields survive. Never normalise into a new object and
   re-encode from scratch.
+- **Web-written backups carry `-web`.** Manual exports and **Save now** use
+  `TubeShelf YYYY-MM-DD HH.MM.SS-web.json` so a web edit is distinguishable from
+  a Mac backup in the shared folder. Autosaves keep `(Web)` / `(Local Sync)`.
 - **Export creates a new timestamped file.** Do not overwrite the file you loaded.
   The workflow is one writer at a time; the Mac's restore copies the replaced
   shelf aside.

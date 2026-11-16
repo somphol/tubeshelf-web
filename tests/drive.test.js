@@ -18,7 +18,7 @@ import {
 
 test("names distinguish manual, autosave and local files", () => {
   const date = new Date(2026, 10, 15, 13, 0, 0);
-  assert.equal(backupName(date), "TubeShelf 2026-11-15 13.00.00.json");
+  assert.equal(backupName(date), "TubeShelf 2026-11-15 13.00.00-web.json");
   assert.equal(autosaveName(date), "TubeShelf Autosave (Web) 2026-11-15 13.00.00.json");
   assert.equal(isAutosaveName(autosaveName(date)), true);
   assert.equal(isAutosaveName(backupName(date)), false);

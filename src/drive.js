@@ -68,7 +68,7 @@ export function stamp(date = new Date()) {
 }
 
 export function backupName(date = new Date()) {
-  return `TubeShelf ${stamp(date)}.json`;
+  return `TubeShelf ${stamp(date)}-web.json`;
 }
 
 export function autosaveName(date = new Date()) {

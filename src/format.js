@@ -294,5 +294,5 @@ export function isoNow(date = new Date()) {
 
 export function suggestedFileName(date = new Date()) {
   const pad = (n) => String(n).padStart(2, "0");
-  return `TubeShelf ${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}.${pad(date.getMinutes())}.${pad(date.getSeconds())}.json`;
+  return `TubeShelf ${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}.${pad(date.getMinutes())}.${pad(date.getSeconds())}-web.json`;
 }

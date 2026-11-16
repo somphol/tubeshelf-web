@@ -25,7 +25,7 @@ start editing.
 
 1. Morning: export a backup from the Mac (or use the one already in Drive).
 2. At work: **Open…**, edit, add videos, tidy categories.
-3. **Export backup** writes a new timestamped JSON file.
+3. **Export backup** writes a new timestamped `…-web.json` file.
 4. Evening: restore that file on the Mac. The Mac keeps a copy of the shelf it
    replaced, so a wrong file is recoverable.
 

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { decodeBackup, BackupError, thumbnailCandidates } from "../src/format.js";
+import { decodeBackup, BackupError, suggestedFileName, thumbnailCandidates } from "../src/format.js";
 
 const envelope = {
   format: "tubeshelf.backup",
@@ -133,4 +133,9 @@ test("pinned channels keep YouTube spelling and collapse duplicates", () => {
   );
   assert.deepEqual(result.pinnedChannels, ["3Blue1Brown", "Bake Club"]);
   assert.deepEqual(decodeBackup(JSON.stringify({ videos: [{ youtubeID: "dQw4w9WgXcQ", title: "A" }] })).pinnedChannels, []);
+});
+
+test("web exports carry a -web suffix", () => {
+  const date = new Date(2026, 10, 15, 13, 0, 0);
+  assert.equal(suggestedFileName(date), "TubeShelf 2026-11-15 13.00.00-web.json");
 });

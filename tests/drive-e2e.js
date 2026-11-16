@@ -199,6 +199,7 @@ import puppeteer from "puppeteer-core";
   assert.equal(connected.folder, "folder-1");
   assert.equal(saved.uploads, 1);
   assert.ok(saved.name.startsWith("TubeShelf "));
+  assert.ok(saved.name.endsWith("-web.json"));
   assert.equal(saved.listed, 1);
   assert.equal(auto.dirty, false, "cloud autosave marks the shelf clean");
   assert.equal(uploadAfterAuto, 2, "one web autosave was uploaded");

@@ -69,6 +69,7 @@ import puppeteer from "puppeteer-core";
     button: document.querySelector("#drive")?.textContent,
   }));
   assert.equal(saved.files.length, 1);
+  assert.ok(saved.files[0].endsWith("-web.json"));
   assert.equal(saved.rows, 1);
 
   await page.click("#folder-open-latest");
