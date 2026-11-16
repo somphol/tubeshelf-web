@@ -438,20 +438,6 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
   font-weight: 600;
 }
 
-.draft-banner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 18px;
-  background: rgba(124, 92, 240, 0.16);
-  border-bottom: 1px solid rgba(124, 92, 240, 0.35);
-  font-size: 12px;
-  color: var(--text);
-}
-.draft-banner strong { margin-right: 6px; }
-.draft-banner span { color: var(--muted); }
-.draft-actions { margin-left: auto; display: flex; gap: 8px; }
-
 .modal {
   position: fixed;
   inset: 0;
@@ -687,8 +673,6 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
   .modal { padding-top: 3vh; }
   .edit-preview { flex-direction: column; }
   .edit-preview img { width: 100%; max-width: 320px; }
-  .draft-banner { flex-wrap: wrap; }
-  .draft-actions { margin-left: 0; }
 }
 
 /* ---------- Google Drive ---------- */
@@ -833,4 +817,14 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
   .url-entry { flex-wrap: wrap; }
   .url-entry input { flex: 1 1 100%; }
   .url-entry .button { flex: 1; }
+}
+
+.local-copy-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 11px;
 }

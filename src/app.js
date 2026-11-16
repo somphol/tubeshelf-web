@@ -254,7 +254,6 @@ function scheduleDraft() {
 async function clearDraft() {
   clearTimeout(draftTimer);
   await idbDelete("draft");
-  $("#draft-banner").hidden = true;
 }
 
 function setDraftStatus() {
@@ -337,12 +336,11 @@ function loadText(text, name, { draft = false, dirty = false, restoreView = fals
     $("#main").hidden = false;
     $("#add").disabled = false;
     $("#export").disabled = false;
-    $("#draft-banner").hidden = true;
     if (restoreView) applySavedView();
     renderAll();
     scheduleDraft();
     toast(
-      `${state.store.videos.length} videos · ${state.store.playlists.length} course${state.store.playlists.length === 1 ? "" : "s"}${draft ? " · restored last session" : ""}`
+      `${state.store.videos.length} videos · ${state.store.playlists.length} course${state.store.playlists.length === 1 ? "" : "s"}${draft ? " · restored local copy" : ""}`
     );
   } catch (error) {
     toast(error.message || "That file could not be read.");
@@ -2051,6 +2049,31 @@ async function ensureFolder(request = false) {
   return true;
 }
 
+async function forgetLocalCopy() {
+  if (!state.store) return;
+  if (!confirm("Forget the copy of this shelf stored in this browser? Export a backup first if you need it.")) return;
+  closeModal("#drive-modal");
+  await clearDraft();
+  clearSavedView();
+  showLanding();
+  toast("Local copy forgotten");
+}
+
+function localCopySection() {
+  if (!state.store) return null;
+  const detail = state.draftAt
+    ? `Last written ${state.draftAt.toLocaleString()}.`
+    : "Written automatically after each change.";
+  return el("section", { class: "local-copy-section" },
+    el("div", { class: "field-label", text: "Local copy on this device" }),
+    el("div", { class: "drive-hint",
+      text: `“${state.store.fileName}” reopens automatically on this device. ${detail}` }),
+    el("div", { class: "drive-actions" },
+      el("button", { class: "button danger", onclick: forgetLocalCopy }, "Forget local copy")
+    )
+  );
+}
+
 async function openLatestFolder() {
   if (!(await ensureFolder(true))) {
     toast("Choose the Google Drive folder first.");
@@ -2655,6 +2678,8 @@ function renderDriveBody() {
   const isConnected = connected();
   body.replaceChildren();
   body.append(folderSection());
+  const localCopy = localCopySection();
+  if (localCopy) body.append(localCopy);
   body.append(el("div", { class: "field-label", text: "Advanced: Google sign-in (app owner)" }));
 
   const dotClass = isConnected ? "on" : ["reconnect", "error"].includes(state.drive.status) ? "warn" : "";
@@ -3025,7 +3050,6 @@ function showLanding() {
   $("#add").disabled = true;
   $("#export").disabled = true;
   $("#undo").disabled = true;
-  $("#draft-banner").hidden = true;
 }
 
 /* ---------- boot / draft ---------- */
@@ -3053,20 +3077,6 @@ function showLanding() {
     restoreView: true,
     baseText: draft.baseText || null,
   });
-  const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : "earlier";
-  $("#draft-meta").textContent = `Restored last session · ${draft.fileName || "shelf"} · ${when}`;
-  $("#draft-banner").hidden = false;
-  $("#draft-restore").textContent = "Keep";
-  $("#draft-restore").onclick = () => {
-    $("#draft-banner").hidden = true;
-  };
   updateLanding();
   updateDriveButton();
-  $("#draft-discard").textContent = "Forget";
-  $("#draft-discard").onclick = async () => {
-    await clearDraft();
-    clearSavedView();
-    showLanding();
-    toast("Local copy forgotten");
-  };
 })();

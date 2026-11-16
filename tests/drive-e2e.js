@@ -121,6 +121,9 @@ import puppeteer from "puppeteer-core";
   await new Promise((r) => setTimeout(r, 800));
   await page.click("#drive");
   await new Promise((r) => setTimeout(r, 300));
+  const localCopy = await page.$eval("#drive-body", (node) => node.textContent);
+  assert.match(localCopy, /Local copy on this device/);
+  assert.match(localCopy, /Forget local copy/);
   await page.type("#drive-client", "123-test.apps.googleusercontent.com");
   await page.type("#drive-key", "fake-api-key");
   await page.select("#drive-mode", "full");
@@ -208,6 +211,7 @@ import puppeteer from "puppeteer-core";
   assert.equal(opened.cards, 7);
   assert.equal(opened.modalClosed, true);
   assert.equal(reloaded.cards, 7);
+  assert.equal(await page.$("#draft-banner"), null, "no draft banner");
   assert.deepEqual(errors, [], "no page errors");
 
   console.log(JSON.stringify({ connected, saved, auto, uploadAfterAuto, local, uploadAfterLocal, opened, reloaded, errors }, null, 2));

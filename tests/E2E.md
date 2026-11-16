@@ -94,9 +94,9 @@ python3 -m http.server 8770
    press Return, press **Save**. Expect `· Edited`, an enabled Undo and the tag
    on the card. Re-open and confirm `Test Tag` appears under Your categories.
 3. Wait ~1.5 s, open a **second tab** to the same URL. The shelf restores
-   automatically (landing hidden, 7 cards) with a **Restored last session**
-   banner. The filter/search/page should match the first tab. Press **Keep**.
-   (A reload in a dirty tab triggers the beforeunload prompt; accept it.)
+   automatically (landing hidden, 7 cards, `local copy` in the file meta) with no
+   banner. The filter/search/page should match the first tab. (A reload in a
+   dirty tab triggers the beforeunload prompt; accept it.)
 4. **Add video**, paste `https://www.youtube.com/watch?v=kJQP7kiw5Fk`, press
    **Fetch details**. Expect title/channel from oEmbed within ~3 s. Leave the
    categories empty, press **Add to shelf**; expect the confirmation

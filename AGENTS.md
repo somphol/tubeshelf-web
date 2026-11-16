@@ -199,14 +199,15 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   autosaves do not move it. It is persisted as `baseText` beside the draft so a
   reload keeps the common ancestor. Old drafts without `baseText` fall back to a
   conservative two-way review (every difference is a conflict).
-- **The local copy is automatic.** A single IndexedDB record under `draft` holds
-  the last shelf, written 1.2 s after load or change. On boot it is restored
-  automatically, with a banner offering **Keep** or **Forget**. The record stores
-  `dirty` so an exported shelf reloads without the Edited marker or beforeunload
-  prompt. Export keeps the record; only Forget clears it. View state (filter,
-  query, scope, page, sidebar query) lives in `localStorage` under
-  `tubeshelf-rw-view` and is restored with the shelf. Known gap: one slot, not
-  keyed per file.
+- **The local copy is automatic and silent.** A single IndexedDB record under
+  `draft` holds the last shelf, written 1.2 s after load or change. On boot it is
+  restored with no banner; the file meta shows `local copy HH:MM`. **Backups →
+  Local copy on this device → Forget local copy** clears the record and returns to
+  the landing page. The record stores `dirty` so an exported shelf reloads
+  without the Edited marker or beforeunload prompt. Export keeps the record; only
+  Forget clears it. View state (filter, query, scope, page, sidebar query) lives
+  in `localStorage` under `tubeshelf-rw-view` and is restored with the shelf.
+  Known gap: one slot, not keyed per file.
 - **Thumbnails use the 120 px rule.** YouTube can answer a missing maxres with
   HTTP 404 plus a decodable 120×90 grey image, so `coverImage` advances on
   `naturalWidth <= 120`, then on `error`. Same rule as the Mac app.
