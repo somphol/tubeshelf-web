@@ -56,10 +56,13 @@ start editing.
   wheel, or the filmstrip move between slides; tags filter the shelf, **Edit**
   opens the editor, **Play on YouTube** opens the video, and **Esc** returns.
 - **Right-click a card** for Show slide / Edit categories and notes / Open on
-  YouTube. Left-click stays a slide, never the editor.
-- **Backups keep the profile name:** a Mac file named
-  `TubeShelf My Shelf …json` exports as `TubeShelf My Shelf …-web.json`; a file
-  without a profile keeps the short name.
+  YouTube. Left-click stays a slide, never the editor. Hover shows a **★/☆**
+  button to favorite or unfavorite immediately.
+- **Backups keep the profile and device:** a Mac file named
+  `TubeShelf My Shelf @ Work-Mac …json` exports as
+  `TubeShelf My Shelf @ macOS …-web.json`. The device defaults to the browser
+  platform; rename it under **Backups → This device name**. A file without a
+  profile still gets a parseable `Shelf @ device` name.
 - **Merge instead of replace:** opening a backup while this browser has edits
   applies one-sided changes and asks only where both sides changed. Differences
   are reviewed one at a time: **Keep this browser / Use the backup / Keep both**,

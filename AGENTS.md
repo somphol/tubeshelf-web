@@ -159,11 +159,16 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   selected Drive-for-Desktop folder first, then a connected Drive folder, and is
   hidden until a destination exists. It uses the same timestamped `-web` name and
   checkpoint as **Save now**; do not add a save panel or a second naming scheme.
-- **Web-written backups carry `-web` and the loaded profile.** Manual exports and
-  **Save now** use `TubeShelf <profile> YYYY-MM-DD HH.MM.SS-web.json`, where the
-  profile comes from the loaded Mac filename and is omitted when absent. This
-  keeps two shelves distinct in the shared folder. Autosaves keep
-  `(Web)` / `(Local Sync)`.
+- **Web-written backups carry `-web`, the loaded profile and this device.** Manual
+  exports, Quick backup and **Save now** use
+  `TubeShelf <profile> @ <device> YYYY-MM-DD HH.MM.SS-web.json`. The profile comes
+  from the loaded Mac filename; the device is the detected browser platform
+  (macOS/Windows/Linux/iPad/…) or the editable **This device name** in Backups.
+  A machine-only name falls back to `Shelf @ device` so it stays parseable.
+  Autosaves keep `(Web)` / `(Local Sync)`.
+- **Card hover has a favorite toggle.** The `★/☆` button calls
+  `setVideoFavorite`, re-renders, and toasts; it is separate from the static
+  favorite flag and the editor checkbox.
 - **Export creates a new timestamped file.** Do not overwrite the file you loaded.
   The workflow is one writer at a time; the Mac's restore copies the replaced
   shelf aside.

@@ -302,7 +302,7 @@ export function isoNow(date = new Date()) {
 
 export function sanitizeProfileName(raw = "") {
   return String(raw || "")
-    .replace(/[\/\\:*?"<>|\u0000-\u001f]/g, " - ")
+    .replace(/[\/\\:*?"<>|@\u0000-\u001f]/g, " - ")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^[-\s]+|[-\s]+$/g, "")
@@ -315,13 +315,23 @@ export function profileNameFromFile(fileName = "") {
   const stem = String(fileName || "")
     .replace(/\.json$/i, "")
     .replace(/-web$/i, "");
+  const withMachine = stem.match(/^TubeShelf (.*?) @ .*? \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}(?: \S+)?$/);
+  if (withMachine) return withMachine[1].trim();
   const match = stem.match(/^TubeShelf (.*?) \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}(?: \S+)?$/);
   return match ? match[1].trim() : "";
 }
 
-export function suggestedFileName(date = new Date(), profileName = "") {
-  const pad = (n) => String(n).padStart(2, "0");
+/** `Profile @ Machine`, or just one of them; "Shelf" keeps machine-only names parseable. */
+export function backupIdentity(profileName = "", machineName = "") {
   const profile = sanitizeProfileName(profileName);
-  const prefix = profile ? `TubeShelf ${profile} ` : "TubeShelf ";
+  const machine = sanitizeProfileName(machineName);
+  if (!machine) return profile;
+  return `${profile || "Shelf"} @ ${machine}`;
+}
+
+export function suggestedFileName(date = new Date(), profileName = "", machineName = "") {
+  const pad = (n) => String(n).padStart(2, "0");
+  const identity = backupIdentity(profileName, machineName);
+  const prefix = identity ? `TubeShelf ${identity} ` : "TubeShelf ";
   return `${prefix}${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}.${pad(date.getMinutes())}.${pad(date.getSeconds())}-web.json`;
 }

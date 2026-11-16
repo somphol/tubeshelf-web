@@ -110,7 +110,7 @@ The client ID is public. There is no client secret in a browser token flow.
 
 - The app opens the newest `.json` when you use **Open from Google Drive** or
   **Open latest**. It merges into unsaved edits; **Replace** stays available.
-- **Save now** uploads a new timestamped `TubeShelf <profile> YYYY-MM-DD HH.MM.SS-web.json`.
+- **Save now** uploads a new timestamped `TubeShelf <profile> @ <device> YYYY-MM-DD HH.MM.SS-web.json`.
 - **Hourly Drive autosave** is on by default in the panel. It writes at most once
   per hour, only when the shelf revision changed, as
   `TubeShelf Autosave (Web) YYYY-MM-DD HH.MM.SS.json`.

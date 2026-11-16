@@ -16,6 +16,7 @@ import {
   counts,
   markSaved,
   saveVideo,
+  setVideoFavorite,
   setVideoTags,
   deleteVideo,
   addVideo,
@@ -51,6 +52,7 @@ import {
 import { demoBackup } from "./demo.js";
 import { HAS_DRIVE_DEFAULTS } from "./drive-config.js";
 import { WEB_VERSION } from "./version.js";
+import { deviceName, setDeviceName, detectedDeviceName } from "./device.js";
 import {
   folderSupported,
   pickFolder,
@@ -1196,7 +1198,6 @@ function videoCard(video) {
   if (video.durationSeconds) {
     thumb.append(el("span", { class: "duration", text: formatDuration(video.durationSeconds) }));
   }
-  if (video.isFavorite) thumb.append(el("span", { class: "flag", text: "★" }));
   const actions = el("div", { class: "card-actions" },
     el("button", {
       title: "Open on YouTube",
@@ -1221,6 +1222,16 @@ function videoCard(video) {
     }, "Edit")
   );
   thumb.append(actions);
+  thumb.append(el("button", {
+    class: `thumb-favorite${video.isFavorite ? " active" : ""}`,
+    title: video.isFavorite ? "Remove from favorites" : "Add to favorites",
+    onclick: (event) => {
+      event.stopPropagation();
+      setVideoFavorite(state.store, video.youtubeID, !video.isFavorite);
+      changed();
+      toast(video.isFavorite ? "Removed from favorites" : "Added to favorites");
+    },
+  }, video.isFavorite ? "★" : "☆"));
 
   return el("button", {
     class: "card",
@@ -2164,12 +2175,19 @@ function backupProfileName() {
   return profileNameFromFile(state.store?.fileName || "");
 }
 
+function backupMachineName() {
+  return deviceName();
+}
+
 function exportBackup() {
   if (!state.store) return;
   const text = currentBackup(state.store);
   const blob = new Blob([text], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-  const link = el("a", { href: url, download: suggestedFileName(new Date(), backupProfileName()) });
+  const link = el("a", {
+    href: url,
+    download: suggestedFileName(new Date(), backupProfileName(), backupMachineName()),
+  });
   document.body.append(link);
   link.click();
   link.remove();
@@ -2370,6 +2388,16 @@ function localCopySection() {
     el("div", { class: "field-label", text: "Local copy on this device" }),
     el("div", { class: "drive-hint",
       text: `“${state.store.fileName}” reopens automatically on this device. ${detail}` }),
+    el("div", { class: "field" },
+      el("label", { text: "This device name" }),
+      el("input", {
+        type: "text",
+        value: deviceName(),
+        placeholder: detectedDeviceName(),
+        oninput: (event) => setDeviceName(event.target.value),
+      }),
+      el("div", { class: "tag-hint", text: "Used in backup filenames. Clear it to use the detected name." })
+    ),
     el("div", { class: "drive-actions" },
       el("button", { class: "button danger", onclick: forgetLocalCopy }, "Forget local copy")
     )
@@ -2419,7 +2447,7 @@ async function saveNowToFolder() {
     return;
   }
   try {
-    const name = backupName(new Date(), backupProfileName());
+    const name = backupName(new Date(), backupProfileName(), backupMachineName());
     const text = currentBackup(state.store);
     await writeText(state.folder.handle, name, text);
     markSaved(state.store);
@@ -2795,7 +2823,7 @@ async function saveNowToDrive() {
     return;
   }
   try {
-    const name = backupName(new Date(), backupProfileName());
+    const name = backupName(new Date(), backupProfileName(), backupMachineName());
     const text = currentBackup(state.store);
     await driveClient().upload({
       name,

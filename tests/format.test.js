@@ -155,6 +155,14 @@ test("backup filenames carry a sanitized profile name", () => {
     "TubeShelf Work - Study 2026-11-15 13.00.00-web.json"
   );
   assert.equal(
+    suggestedFileName(date, "Work / Study", "Work Mac"),
+    "TubeShelf Work - Study @ Work Mac 2026-11-15 13.00.00-web.json"
+  );
+  assert.equal(
+    profileNameFromFile("TubeShelf Work - Study @ Work Mac 2026-11-15 13.00.00-web.json"),
+    "Work - Study"
+  );
+  assert.equal(
     profileNameFromFile("TubeShelf Work - Study 2026-11-15 13.00.00-web.json"),
     "Work - Study"
   );
@@ -164,7 +172,7 @@ test("backup filenames carry a sanitized profile name", () => {
   );
   assert.equal(profileNameFromFile("TubeShelf 2026-11-15 13.00.00 PST.json"), "");
   assert.equal(profileNameFromFile("demo-shelf.json"), "");
-  assert.equal(sanitizeProfileName('A/B:C*?"<>|'), "A - B - C");
+  assert.equal(sanitizeProfileName('A/B:C*?"<>|@'), "A - B - C");
   assert.equal(sanitizeProfileName("   "), "");
 });
 

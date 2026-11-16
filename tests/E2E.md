@@ -123,10 +123,10 @@ python3 -m http.server 8770
    categories empty, press **Add to shelf**; expect the confirmation
    “No category selected…”, dismiss it, and confirm the card count is unchanged.
    Pick an existing category chip, add it, and confirm 8 cards.
-5. Press **Export backup**. Expect `TubeShelf YYYY-MM-DD HH.MM.SS-web.json` in the
+5. Press **Export backup**. Expect `TubeShelf <profile> @ <device> YYYY-MM-DD HH.MM.SS-web.json` in the
    download folder with 8 videos, the edited note/tag and the new video. The demo
-   has no profile name; loading a Mac file such as `TubeShelf My Shelf …json` adds
-   `My Shelf` to the export name.
+   has no profile name; loading a Mac file such as `TubeShelf My Shelf @ Mac …json`
+   adds `My Shelf @ macOS` (or the device name set in Backups) to the export name.
 6. Delete the demo card, press Undo; the card returns.
 7. Thumbnail fallback: load a one-video backup for `nwjAHQERL08`. Its maxres is a
    404 body; the card must end on `hqdefault.jpg` with `naturalWidth` 480, not a

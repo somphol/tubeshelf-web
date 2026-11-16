@@ -31,6 +31,18 @@ try {
   const counter = () => page.$eval(".deck-top .right", (node) => node.textContent);
   const deckOpen = () => page.$eval("#deck", (node) => !node.hidden);
 
+  const firstID = await page.$eval(".card", (node) => node.dataset.youtubeId);
+  const isFavorite = () => page.evaluate((id) =>
+    window.__tubeshelfTest.state.store.videos.find((video) => video.youtubeID === id).isFavorite, firstID);
+  await page.hover(".card");
+  await page.click(".card .thumb-favorite");
+  await wait(200);
+  assert.equal(await isFavorite(), false, "hover star removes a favorite");
+  await page.hover(".card");
+  await page.click(".card .thumb-favorite");
+  await wait(200);
+  assert.equal(await isFavorite(), true, "hover star adds a favorite");
+
   await page.click(".card");
   await wait(400);
   assert.equal(await deckOpen(), true, "left-clicking a card opens the slide");

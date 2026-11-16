@@ -70,6 +70,7 @@ import puppeteer from "puppeteer-core";
   }));
   assert.equal(saved.files.length, 1);
   assert.ok(saved.files[0].endsWith("-web.json"));
+  assert.ok(saved.files[0].includes(" @ "), "the machine name is in the filename");
   assert.equal(saved.rows, 1);
 
   await page.click("#folder-open-latest");
