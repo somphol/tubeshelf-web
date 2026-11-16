@@ -120,9 +120,10 @@ button { font: inherit; color: inherit; }
 code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
 
 /* Layout */
-#main { display: grid; grid-template-columns: 250px 1fr; min-height: calc(100vh - 52px); }
-#main.sidebar-hidden { grid-template-columns: 0 1fr; }
+#main { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: calc(100vh - 52px); }
+#main.sidebar-hidden { grid-template-columns: minmax(0, 1fr); }
 #main.sidebar-hidden #sidebar { display: none; }
+#main.sidebar-hidden #content { grid-column: 1; }
 .sidebar-peek {
   position: fixed;
   left: 0;

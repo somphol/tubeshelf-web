@@ -47,13 +47,17 @@ try {
   await wait(150);
   assert.equal((await section("Categories")).expanded, "true", "section opens");
 
+  const contentWidth = () => page.$eval("#content", (node) => node.getBoundingClientRect().width);
+  const withSidebar = await contentWidth();
   await page.click("#sidebar-toggle");
   await wait(150);
   assert.equal(await sidebarHidden(), true, "sidebar hides");
   assert.equal(await toggleText(), "»");
+  assert.ok((await contentWidth()) > withSidebar + 150, "content fills the freed width");
   await page.click("#sidebar-toggle");
   await wait(150);
   assert.equal(await sidebarHidden(), false, "sidebar shows");
+  assert.ok((await contentWidth()) < withSidebar + 50, "content returns beside the sidebar");
 
   assert.equal(await pinText(), "Pinned");
   await page.click("#sidebar-pin");

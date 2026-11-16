@@ -229,7 +229,9 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   the pointer leaves on desktop and is revealed by the 10 px left edge or **☰**.
   Pinning or manual hiding wins over auto-hide. On `max-width: 900px` the section
   headers disappear and folded rows are forced visible; never let fold state hide
-  the mobile filter strip.
+  the mobile filter strip. When hidden, `#main` must switch to a single
+  `minmax(0, 1fr)` column and place `#content` in it: `0 1fr` lets the content
+  auto-place in the dead 0 px column and leaves the grid at 250 px.
 - **The web version is source, not generated.** `src/version.js`, `package.json`
   and the `index.html` fallback must match; `tests/version.test.js` enforces the
   JS/package pair and the HTML fallback. Bump it with UI changes.
