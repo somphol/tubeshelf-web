@@ -1,2 +1,2 @@
 // Keep this, package.json and the index.html fallback in sync.
-export const WEB_VERSION = "1.4.1";
+export const WEB_VERSION = "1.5.0";

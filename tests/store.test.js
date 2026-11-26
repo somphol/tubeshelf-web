@@ -21,6 +21,10 @@ import {
   redo,
   counts,
   displayVideos,
+  playlistByID,
+  setPlaylistTags,
+  togglePlaylistChapter,
+  removePlaylist,
 } from "../src/store.js";
 
 const raw = {
@@ -182,4 +186,20 @@ test("replaceShelf is one undoable step", () => {
   assert.equal(shelf.dirty, true);
   assert.equal(undo(shelf), true);
   assert.equal(shelf.videos.length, before);
+});
+
+test("playlist chapters and categories are editable", () => {
+  const shelf = store();
+  const id = "PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab";
+  assert.ok(playlistByID(shelf, id));
+  assert.equal(togglePlaylistChapter(shelf, id, "dQw4w9WgXcQ"), true);
+  assert.deepEqual(playlistByID(shelf, id).watchedItemIDs, ["dQw4w9WgXcQ"]);
+  togglePlaylistChapter(shelf, id, "dQw4w9WgXcQ");
+  assert.deepEqual(playlistByID(shelf, id).watchedItemIDs, []);
+  setPlaylistTags(shelf, id, ["Education", "Math"]);
+  assert.deepEqual(playlistByID(shelf, id).tags, ["Education", "Math"]);
+  assert.equal(removePlaylist(shelf, id), true);
+  assert.equal(shelf.playlists.length, 0);
+  assert.equal(undo(shelf), true);
+  assert.equal(shelf.playlists.length, 1);
 });

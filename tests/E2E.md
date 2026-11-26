@@ -65,6 +65,15 @@ npm run test:e2e:search
 It types two characters into the title search and two into the sidebar filter,
 asserting the active element and value survive each re-render.
 
+For courses:
+
+```bash
+npm run test:e2e:course
+```
+
+It opens the Playlist Catalog, checks the course card, ticks a chapter, adds a
+course category, presents the chapters as a deck, and removes the course.
+
 For the sidebar:
 
 ```bash

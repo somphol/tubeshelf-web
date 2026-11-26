@@ -25,6 +25,8 @@ Implemented and manually verified on 2026-11-15:
 - Add video reads a YouTube link from the clipboard on open, then resolves oEmbed;
   **Paste** retries explicitly and manual typing always works. A duplicate loads
   its categories, offers **Show existing card**, and updates categories in place.
+- Playlist Catalog: courses in the grid and course sheet, chapter ticks, course
+  tags, present on-shelf chapters, remove course; store mutations are undoable.
 - Sidebar sections fold independently and remember; the whole bar hides with
   **☰**/⌘\, **Pin** stops pointer-leave auto-hide, and the left edge reveals it.
 - Three-way merge when opening a backup over local edits: one-sided changes are
@@ -44,7 +46,7 @@ Implemented and manually verified on 2026-11-15:
 - Existing-category chips and type-ahead in the editor/add sheet; learned
   keyword profiles from the person's own filing and channel affinity.
 - A new video with no category requires confirmation before it becomes Unsorted.
-- 73 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
+- 74 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
 
 Not implemented: live OAuth verification (no credentials in the repo), course
 editing, bulk selection, in-place file save, redo UI, AI tagging.
@@ -52,13 +54,14 @@ editing, bulk selection, in-place file save, redo UI, AI tagging.
 ## Commands
 
 ```bash
-npm test                           # 73 unit tests (dev-only puppeteer dependency)
+npm test                           # 74 unit tests (dev-only puppeteer dependency)
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 npm run test:e2e                   # fake Google OAuth + Drive, server must be running
 npm run test:e2e:folder            # no-OAuth local Drive folder save/open/autosave
 npm run test:e2e:clipboard         # auto-fill from the clipboard + oEmbed stub
 npm run test:e2e:duplicate         # existing card + in-place category update
+npm run test:e2e:course            # catalog, ticks, tags, present, remove
 npm run test:e2e:sidebar           # fold, hide, pin, auto-hide, mobile strip
 npm run test:e2e:merge             # conflicts, undo, base persistence, 390 px
 npm run test:e2e:deck              # presentation flow at 1240 px and 390 px
@@ -213,6 +216,15 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
 - **Categories rewrite everywhere.** Rename/merge/delete update videos, courses
   and pins. Merging never deletes a category with no target; the UI requires a
   target.
+- **Courses are cards and a sheet, not deck slides.** `currentItems` adds courses
+  for the Playlist Catalog and tag filters; course cards open `#course`, while the
+  video deck stays video-only. The course sheet's Present action passes the
+  on-shelf chapter videos to `openDeck`. Chapter ticks and course tags use
+  `togglePlaylistChapter`/`setPlaylistTags`; removal uses `removePlaylist`.
+- **Adding a playlist by URL is Mac-only.** YouTube playlist pages do not send
+  CORS headers and the RSS feed has none, so the browser cannot fetch chapters.
+  Do not add a proxy or a third-party service; existing courses in a backup are
+  fully editable, and the Mac remains the place to add/refresh playlists.
 - **The merge resolver is a queue, not a form.** Flatten each conflict group into
   one diff per field (or one presence diff), show only the current diff, and move
   to the next after a choice. Keep `Back` for the last resolved diff, bulk

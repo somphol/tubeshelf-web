@@ -47,6 +47,10 @@ start editing.
   silently filed as Unsorted.
 - Category actions: pin/unpin, rename, merge into another category, delete.
 - Pin channels alongside categories.
+- **Playlist Catalog:** courses live beside videos. Open a course to see its
+  ordered chapters, tick progress, edit course categories, open a chapter in the
+  editor, present the on-shelf chapters as a video deck, or remove the course
+  without touching shelf videos. Course tags appear in Categories too.
 - **Sidebar controls:** LIBRARY, PINNED, CATEGORIES and CHANNELS fold
   independently and remember it. **☰** (or **⌘\**) hides the bar; **Pin** keeps
   it open, while unpinned it auto-hides when the pointer leaves and returns from
@@ -87,7 +91,10 @@ start editing.
 
 ## What is not here yet
 
-- Course/playlist editing; courses are counted but not shown or tickable here.
+- Adding a new playlist by URL: the Mac fetches the playlist page; browsers
+  cannot read it (CORS), so this stays Mac-only. A backup's existing courses are
+  fully editable. Course cards open the course sheet, not the video deck; the
+  sheet's Present action plays the on-shelf chapters as videos.
 - Live OAuth verification: the client ships without credentials; each user creates
   one. The transport is unit-tested, the real round-trip is not.
 - In-place file saving; export downloads a new backup.
@@ -113,13 +120,13 @@ and snapshots; clearing site data removes them.
   app's schema; preserve unknown fields).
 - Handoff: [AGENTS.md](AGENTS.md) — architecture, decisions, gaps, Drive plan.
 - Plan: [PLAN.md](PLAN.md).
-- Tests: `npm test` (73 tests); browser proof: `npm run test:e2e` (fake Google
+- Tests: `npm test` (74 tests); browser proof: `npm run test:e2e` (fake Google
   OAuth + Drive, no credentials), `npm run test:e2e:folder` (no-OAuth folder),
   `npm run test:e2e:clipboard` (clipboard autofill), `npm run test:e2e:duplicate`
-  (existing card + category update), `npm run test:e2e:merge` (conflicts, undo
-  and reload), `npm run test:e2e:sidebar` (fold, hide, pin and auto-hide),
-  `npm run test:e2e:deck` (presentation flow) and `npm run test:e2e:graph`
-  (WebGL + labels).
+  (existing card + category update), `npm run test:e2e:course` (catalog, ticks,
+  tags, present, remove), `npm run test:e2e:merge` (conflicts, undo and reload),
+  `npm run test:e2e:sidebar` (fold, hide, pin and auto-hide), `npm run test:e2e:deck`
+  (presentation flow) and `npm run test:e2e:graph` (WebGL + labels).
   Notes in [tests/E2E.md](tests/E2E.md). Drive setup: [DRIVE.md](DRIVE.md).
 - The Mac app is public: <https://github.com/somphol/tubeshelf>.
 

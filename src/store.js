@@ -116,6 +116,42 @@ export function displayPlaylists(store) {
   return store.playlists.map(normalizePlaylist).filter(Boolean);
 }
 
+export function playlistByID(store, id) {
+  return store.playlists.find((playlist) => playlist.id === id) || null;
+}
+
+export function setPlaylistTags(store, id, tags) {
+  const playlist = playlistByID(store, id);
+  if (!playlist) return false;
+  remember(store);
+  playlist.tags = normalizeTags((tags || []).map(canonicalTag).filter(Boolean));
+  touch(store);
+  return true;
+}
+
+export function togglePlaylistChapter(store, id, videoID) {
+  const playlist = playlistByID(store, id);
+  if (!playlist || !videoID) return false;
+  remember(store);
+  const watched = Array.isArray(playlist.watchedItemIDs) ? playlist.watchedItemIDs : [];
+  const key = videoID.toLowerCase();
+  playlist.watchedItemIDs = watched.some((value) => value.toLowerCase() === key)
+    ? watched.filter((value) => value.toLowerCase() !== key)
+    : [...watched, videoID];
+  touch(store);
+  return true;
+}
+
+export function removePlaylist(store, id) {
+  const index = store.playlists.findIndex((playlist) => playlist.id === id);
+  if (index === -1) return false;
+  remember(store);
+  store.playlists.splice(index, 1);
+  prunePins(store);
+  touch(store);
+  return true;
+}
+
 export function videoByYoutubeID(store, youtubeID) {
   return store.videos.find((video) => video.youtubeID === youtubeID);
 }

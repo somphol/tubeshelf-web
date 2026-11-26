@@ -4,6 +4,7 @@ import {
   thumbnailCandidates,
   formatDuration,
   watchURL,
+  playlistURL,
   youtubeIDFromText,
   suggestedFileName,
   profileNameFromFile,
@@ -35,10 +36,19 @@ import {
   isTagPinned,
   isChannelPinned,
   canonicalTag,
+  setPlaylistTags,
+  togglePlaylistChapter,
+  removePlaylist,
 } from "./store.js";
 import {
   applyVideoFilter,
   searchVideos,
+  matches,
+  playlistSearchText,
+  shelfItems,
+  playlistWatched,
+  courseProgress,
+  courseWatchedCount,
   pageWindow,
   pageSlice,
   PAGE_SIZES,
@@ -147,6 +157,7 @@ const state = {
   graphController: null,
   graphToken: 0,
   deck: null,
+  course: null,
   folder: {
     supported: folderSupported(),
     handle: null,
@@ -317,6 +328,7 @@ function checkpointBase(text) {
 function loadText(text, name, { draft = false, dirty = false, restoreView = false, baseText = null } = {}) {
   try {
     closeDeck();
+    closeCourse();
     closeReconcile();
     const parsed = parseBackup(text);
     state.store = createStore(parsed, name);
@@ -836,7 +848,8 @@ function renderSidebar() {
     row("Favorites", videos.filter((video) => video.isFavorite).length, { kind: "favorites" }),
     row("Unwatched", videos.filter((video) => video.watchStatus !== "done").length, { kind: "unwatched" }),
     row("Unsorted", videos.filter((video) => video.tags.length === 0).length, { kind: "unsorted" }),
-  ], "library", 4, Boolean(needle)));
+    row("Playlist Catalog", store.playlists.length, { kind: "playlists" }),
+  ], "library", 5, Boolean(needle)));
 
   const pinnedTags = store.pinnedTags
     .map((pin) => categories.find((entry) => entry.name.toLowerCase() === pin.toLowerCase()))
@@ -994,6 +1007,7 @@ function filterTitle() {
     favorites: "Favorites",
     unwatched: "Unwatched",
     unsorted: "Unsorted",
+    playlists: "Playlist Catalog",
   }[state.filter.kind] || "Shelf";
 }
 
@@ -1002,6 +1016,35 @@ function currentVideos() {
   videos = applyVideoFilter(videos, state.filter);
   videos = searchVideos(videos, state.query, state.scope);
   return videos.sort((a, b) => b.addedAt - a.addedAt);
+}
+
+function currentItems() {
+  const videos = storeVideos(state.store);
+  const playlists = storePlaylists(state.store);
+  if (state.filter.kind === "playlists") {
+    const needle = state.query.trim();
+    return playlists
+      .filter((playlist) => !needle || (state.scope === "titles"
+        ? matches(playlist.title, needle)
+        : matches(playlistSearchText(playlist), needle)))
+      .sort((a, b) => b.addedAt - a.addedAt)
+      .map((playlist) => ({ kind: "playlist", addedAt: playlist.addedAt, playlist }));
+  }
+  return shelfItems(videos, playlists, state.filter, state.query, state.scope);
+}
+
+function contentSubtitle(items, window) {
+  if (state.filter.kind === "playlists") {
+    if (!state.store.hasPlaylistCatalog) return "This backup has no playlist catalog";
+    const chapters = items.reduce((sum, item) => sum + item.playlist.items.length, 0);
+    return `${items.length} course${items.length === 1 ? "" : "s"} · ${chapters} chapter${chapters === 1 ? "" : "s"}`;
+  }
+  if (state.filter.kind === "tag") {
+    const videoCount = items.filter((item) => item.kind === "video").length;
+    const courseCount = items.length - videoCount;
+    return `${videoCount} video${videoCount === 1 ? "" : "s"} · ${courseCount} course${courseCount === 1 ? "" : "s"} · ${window.rangeLabel}`;
+  }
+  return `${items.length} video${items.length === 1 ? "" : "s"}`;
 }
 
 function destroyGraph() {
@@ -1119,21 +1162,22 @@ function renderContent() {
     renderGraphContent(currentVideos());
     return;
   }
-  const videos = currentVideos();
-  const window = pageWindow(videos.length, state.pageSize, state.page);
-  const shown = pageSlice(videos, window);
+  const items = currentItems();
+  const videosForDeck = items.filter((item) => item.kind === "video").map((item) => item.video);
+  const window = pageWindow(items.length, state.pageSize, state.page);
+  const shown = pageSlice(items, window);
 
   const head = el("div", { class: "content-head" },
     el("div", {},
       el("h2", { text: filterTitle() }),
-      el("div", { class: "sub", text: `${videos.length} video${videos.length === 1 ? "" : "s"}` })
+      el("div", { class: "sub", text: contentSubtitle(items, window) })
     ),
     el("div", { class: "grow" }),
     el("button", {
       class: "button",
       title: "Present this list as slides",
-      disabled: videos.length === 0,
-      onclick: () => openDeck(currentVideos(), 0),
+      disabled: videosForDeck.length === 0,
+      onclick: () => openDeck(videosForDeck, 0),
     }, "Present"),
     el("button", {
       class: "button",
@@ -1178,22 +1222,33 @@ function renderContent() {
   );
   content.append(head);
 
-  if (!videos.length) {
-    content.append(
-      el("div", { class: "empty" },
-        el("h3", { text: state.query.trim() ? `Nothing matches “${state.query.trim()}”` : "Nothing here" }),
-        el("p", { text: state.query.trim() ? "Try a shorter word or switch the scope." : "Add a video, or pick another category." })
-      )
-    );
+  if (!items.length) {
+    let title = state.query.trim() ? `Nothing matches “${state.query.trim()}”` : "Nothing here";
+    let message = state.query.trim() ? "Try a shorter word or switch the scope." : "Add a video, or pick another category.";
+    if (state.filter.kind === "playlists") {
+      if (!state.store.hasPlaylistCatalog) {
+        title = "No playlist catalog";
+        message = "This backup was exported without courses. Export again from the Mac so it includes playlists.";
+      } else if (!state.query.trim()) {
+        title = "No courses yet";
+        message = "Add a playlist in the Mac app, then reopen this backup.";
+      }
+    }
+    content.append(el("div", { class: "empty" },
+      el("h3", { text: title }),
+      el("p", { text: message })
+    ));
     return;
   }
 
   const grid = el("div", { class: "grid" });
-  for (const video of shown) grid.append(videoCard(video));
+  for (const item of shown) {
+    grid.append(item.kind === "video" ? videoCard(item.video) : courseCard(item.playlist));
+  }
   content.append(grid);
 
   if (window.pageCount > 1) {
-    content.append(pager(videos, window));
+    content.append(pager(items, window));
   }
 }
 
@@ -1289,6 +1344,230 @@ function tagRow(tags) {
     tags.slice(0, 3).map((tag) => el("span", { class: "chip", text: tag })),
     tags.length > 3 ? el("span", { class: "chip", text: `+${tags.length - 3}` }) : null
   );
+}
+
+function courseThumb(playlist) {
+  const thumb = el("div", { class: "thumb" });
+  const mosaic = el("div", { class: "mosaic" });
+  const ids = playlist.items.slice(0, 3).map((item) => item.videoID);
+  if (ids.length) {
+    for (const id of ids) mosaic.append(thumbnail(id));
+  } else {
+    mosaic.append(el("div", { class: "placeholder", text: "No chapters" }));
+  }
+  thumb.append(mosaic);
+  thumb.append(el("span", { class: "chapters", text: `${playlist.items.length} chapters` }));
+  return thumb;
+}
+
+function courseCard(playlist) {
+  const watched = courseWatchedCount(playlist);
+  return el("button", {
+    class: "card",
+    dataset: { playlistId: playlist.id },
+    title: "Open course",
+    onclick: () => openCourse(playlist.id),
+  },
+    courseThumb(playlist),
+    el("div", { class: "card-body" },
+      el("div", { class: "card-title", text: playlist.title }),
+      el("div", { class: "card-meta" },
+        el("span", { text: playlist.channel || "Playlist" }),
+        el("span", { class: "dot", text: "·" }),
+        el("span", { text: `${watched}/${playlist.items.length} watched` }),
+        playlist.isTruncated ? el("span", { class: "dot", text: "·" }) : null,
+        playlist.isTruncated ? el("span", { text: "first batch" }) : null
+      ),
+      el("div", { class: "progress" },
+        el("span", { style: `width:${Math.round(courseProgress(playlist) * 100)}%` })
+      ),
+      tagRow(playlist.tags)
+    )
+  );
+}
+
+function openCourse(playlistID) {
+  const playlist = storePlaylists(state.store).find((item) => item.id === playlistID);
+  if (!playlist) return;
+  state.course = playlistID;
+  $("#course").hidden = false;
+  renderCourse();
+}
+
+function closeCourse() {
+  state.course = null;
+  const sheet = $("#course");
+  if (sheet) sheet.hidden = true;
+}
+
+function renderCourse() {
+  const sheet = $("#course");
+  if (!sheet || !state.course) return;
+  const playlist = storePlaylists(state.store).find((item) => item.id === state.course);
+  if (!playlist) {
+    closeCourse();
+    return;
+  }
+  sheet.replaceChildren();
+
+  const onShelf = playlist.items
+    .map((item) => state.store.videos.find((video) => video.youtubeID === item.videoID))
+    .filter(Boolean);
+  const cover = playlist.items[0];
+
+  sheet.append(el("div", { class: "deck-top" },
+    el("button", { class: "pill", onclick: closeCourse }, "‹ Back"),
+    el("span", { text: "Course" }),
+    el("div", { class: "right" },
+      el("span", { text: `${courseWatchedCount(playlist)} / ${playlist.items.length} watched` }),
+      el("button", { class: "pill", onclick: closeCourse, title: "Close (esc)" }, "✕")
+    )
+  ));
+
+  const tagsBox = el("div", { class: "chip-list" });
+  const tagInput = el("input", {
+    type: "text",
+    id: "course-tag-input",
+    list: "course-tag-list",
+    placeholder: "Add a category",
+    onkeydown: (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      addCourseTag();
+    },
+  });
+  const tagDatalist = el("datalist", { id: "course-tag-list" },
+    allCategoryNames().map((name) => el("option", { value: name }))
+  );
+
+  function applyTags(next) {
+    setPlaylistTags(state.store, playlist.id, next);
+    changed();
+    renderCourse();
+    requestAnimationFrame(() => {
+      const input = $("#course-tag-input");
+      if (input) input.focus();
+    });
+  }
+
+  function addCourseTag() {
+    const tag = canonicalTag(tagInput.value);
+    if (!tag) return;
+    if (playlist.tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+      tagInput.value = "";
+      return;
+    }
+    applyTags([...playlist.tags, tag]);
+  }
+
+  function paintCourseTags() {
+    tagsBox.replaceChildren(...playlist.tags.map((tag) =>
+      el("span", { class: "tag-chip" }, tag,
+        el("button", {
+          title: "Remove category",
+          onclick: () => applyTags(playlist.tags.filter((value) => value !== tag)),
+        }, "✕")
+      )
+    ));
+  }
+  paintCourseTags();
+
+  const head = el("div", { class: "course-head" });
+  if (cover) {
+    head.append(thumbnail(cover.videoID));
+  } else {
+    head.append(el("div", { class: "mosaic" }, el("div", { class: "placeholder", text: "No chapters" })));
+  }
+  head.append(el("div", { class: "course-info" },
+    el("h2", { text: playlist.title }),
+    el("div", { class: "deck-meta" },
+      el("span", { text: playlist.channel || "Playlist" }),
+      el("span", { text: "·" }),
+      el("span", { text: `${courseWatchedCount(playlist)} of ${playlist.items.length} watched` }),
+      el("span", { text: "·" }),
+      el("span", { text: `${onShelf.length} on your shelf` })
+    ),
+    el("div", { class: "progress", style: "margin:10px 0 12px;max-width:320px" },
+      el("span", { style: `width:${Math.round(courseProgress(playlist) * 100)}%` })
+    ),
+    el("div", { class: "field-label", text: "Categories" }),
+    tagsBox,
+    el("div", { class: "tag-entry" },
+      tagInput,
+      el("button", { class: "button", onclick: addCourseTag }, "Add")
+    ),
+    tagDatalist,
+    el("div", { class: "deck-actions" },
+      el("a", {
+        class: "button",
+        href: playlistURL(playlist.id),
+        target: "_blank",
+        rel: "noreferrer noopener",
+        text: "Open on YouTube",
+      }),
+      onShelf.length
+        ? el("button", {
+            class: "button primary",
+            onclick: () => {
+              closeCourse();
+              openDeck(onShelf, 0);
+            },
+          }, `Present ${onShelf.length} chapter${onShelf.length === 1 ? "" : "s"}`)
+        : null
+    )
+  ));
+  sheet.append(head);
+
+  const list = el("div", { class: "course-list" });
+  playlist.items.forEach((item, index) => {
+    const video = state.store.videos.find((entry) => entry.youtubeID === item.videoID);
+    const watched = playlistWatched(playlist, item.videoID);
+    list.append(el("div", { class: "course-row" },
+      el("span", { class: "idx", text: String(index + 1) }),
+      el("button", {
+        class: watched ? "tick on" : "tick",
+        title: watched ? "Mark chapter unwatched" : "Mark chapter watched",
+        onclick: () => {
+          togglePlaylistChapter(state.store, playlist.id, item.videoID);
+          changed();
+          renderCourse();
+        },
+      }, watched ? "✓" : "○"),
+      thumbnail(item.videoID),
+      el("div", {},
+        el("div", { class: "title", text: item.title }),
+        el("div", { class: "sub", text: [item.channel, formatDuration(item.durationSeconds)].filter(Boolean).join(" · ") })
+      ),
+      el("div", { class: "row-actions" },
+        el("span", { class: "shelf", text: video ? "On shelf" : "Not on shelf" }),
+        video
+          ? el("button", {
+              class: "button",
+              onclick: () => {
+                closeCourse();
+                openEditor(item.videoID);
+              },
+            }, "Edit")
+          : null
+      )
+    ));
+  });
+  sheet.append(list);
+
+  sheet.append(el("div", { class: "course-footer" },
+    el("button", {
+      class: "button danger",
+      onclick: () => {
+        if (!confirm(`Remove “${playlist.title}” from the course catalog? Its videos stay on the shelf.`)) return;
+        removePlaylist(state.store, playlist.id);
+        closeCourse();
+        changed();
+        toast("Course removed");
+      },
+    }, "Remove course"),
+    el("span", { class: "grow" }),
+    el("span", { class: "tag-hint", text: `Added ${dateLabel(playlist.addedAt)}` })
+  ));
 }
 
 function pager(items, window) {
@@ -3325,6 +3604,11 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (state.course && event.key === "Escape") {
+    event.preventDefault();
+    closeCourse();
+    return;
+  }
   if (state.deck) {
     if (event.key === "ArrowRight") { event.preventDefault(); deckStep(1); return; }
     if (event.key === "ArrowLeft") { event.preventDefault(); deckStep(-1); return; }
@@ -3434,6 +3718,7 @@ function showLanding() {
   state.store = null;
   state.base = null;
   state.baseText = null;
+  closeCourse();
   closeReconcile();
   state.filter = { kind: "all" };
   state.query = "";
