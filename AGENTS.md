@@ -228,6 +228,11 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   autosaves do not move it. It is persisted as `baseText` beside the draft so a
   reload keeps the common ancestor. Old drafts without `baseText` fall back to a
   conservative two-way review (every difference is a conflict).
+- **Search re-renders must restore focus and caret.** Both `#search` and
+  `#sidebar-search` rebuild their input on every input event. Capture
+  `selectionStart/End`, render, then focus the new node and call
+  `setSelectionRange` synchronously; otherwise the second character is lost.
+  Keep the `search-e2e` check.
 - **The sidebar is foldable, hideable and pinnable.** Section folds persist under
   `tubeshelf-rw-sections`, manual visibility under `tubeshelf-rw-sidebar-hidden`,
   and pinning under `tubeshelf-rw-sidebar-pinned`. Unpinned auto-hides only after

@@ -802,11 +802,19 @@ function renderSidebar() {
     el("div", { class: "side-search" },
       el("input", {
         type: "search",
+        id: "sidebar-search",
         placeholder: "Filter categories & channels",
         value: state.sidebarQuery,
         oninput: (event) => {
+          const start = event.target.selectionStart ?? event.target.value.length;
+          const end = event.target.selectionEnd ?? start;
           state.sidebarQuery = event.target.value;
           renderSidebar();
+          const next = $("#sidebar-search");
+          if (next) {
+            next.focus();
+            next.setSelectionRange(start, end);
+          }
         },
       }),
       el("button", {
@@ -1143,9 +1151,16 @@ function renderContent() {
         placeholder: "Search titles…",
         value: state.query,
         oninput: (event) => {
+          const start = event.target.selectionStart ?? event.target.value.length;
+          const end = event.target.selectionEnd ?? start;
           state.query = event.target.value;
           state.page = 0;
           renderContent();
+          const next = $("#search");
+          if (next) {
+            next.focus();
+            next.setSelectionRange(start, end);
+          }
         },
       }),
       el("select", {

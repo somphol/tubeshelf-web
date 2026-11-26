@@ -56,6 +56,15 @@ npm run test:e2e:duplicate
 It fetches a link already on the shelf, checks the existing categories load, edits
 them, updates the card in place, and uses **Show existing card** on a second try.
 
+For search focus:
+
+```bash
+npm run test:e2e:search
+```
+
+It types two characters into the title search and two into the sidebar filter,
+asserting the active element and value survive each re-render.
+
 For the sidebar:
 
 ```bash

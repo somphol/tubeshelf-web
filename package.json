@@ -12,10 +12,11 @@
     "test:e2e:merge": "node tests/merge-e2e.js",
     "test:e2e:clipboard": "node tests/clipboard-e2e.js",
     "test:e2e:sidebar": "node tests/sidebar-e2e.js",
-    "test:e2e:duplicate": "node tests/add-existing-e2e.js"
+    "test:e2e:duplicate": "node tests/add-existing-e2e.js",
+    "test:e2e:search": "node tests/search-e2e.js"
   },
   "devDependencies": {
     "puppeteer-core": "^24.0.0"
   },
-  "version": "1.4.0"
+  "version": "1.4.1"
 }
