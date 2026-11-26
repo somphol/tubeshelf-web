@@ -1579,14 +1579,12 @@ function openPlaylistImport() {
 
 function courseThumb(playlist) {
   const thumb = el("div", { class: "thumb" });
-  const mosaic = el("div", { class: "mosaic" });
-  const ids = playlist.items.slice(0, 3).map((item) => item.videoID);
-  if (ids.length) {
-    for (const id of ids) mosaic.append(thumbnail(id));
+  const cover = playlist.items[0];
+  if (cover) {
+    thumb.append(thumbnail(cover.videoID));
   } else {
-    mosaic.append(el("div", { class: "placeholder", text: "No chapters" }));
+    thumb.append(el("div", { class: "placeholder", text: "No chapters" }));
   }
-  thumb.append(mosaic);
   thumb.append(el("span", { class: "chapters", text: `${playlist.items.length} chapters` }));
   return thumb;
 }

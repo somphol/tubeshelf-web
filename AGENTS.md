@@ -219,6 +219,9 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
 - **Categories rewrite everywhere.** Rename/merge/delete update videos, courses
   and pins. Merging never deletes a category with no target; the UI requires a
   target.
+- **A course card shows one cover.** Use the first chapter's artwork, not a
+  three-up mosaic; the catalog is scanned by title and cover. Keep the chapter
+  count badge.
 - **Courses are cards and a sheet, not deck slides.** `currentItems` adds courses
   for the Playlist Catalog and tag filters; course cards open `#course`, while the
   video deck stays video-only. The course sheet's Present action passes the
