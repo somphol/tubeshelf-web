@@ -463,7 +463,7 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
   .deck-info { width: auto; }
   .deck-media img { max-height: 42vh; }
   .search { min-width: 0; flex: 1; }
-  .course-row { grid-template-columns: 20px 16px 72px 1fr; }
+  .course-row { grid-template-columns: 20px 16px 72px 1fr auto; }
   .course-row .shelf { display: none; }
   .course-head { flex-direction: column; }
   .course-head img { width: 100%; max-width: 320px; }
