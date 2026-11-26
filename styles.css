@@ -1007,3 +1007,23 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
   outline: 1px solid rgba(138, 180, 255, 0.55);
   border-color: transparent;
 }
+
+.playlist-panel { width: min(640px, 100%); }
+.playlist-player-slot:empty { display: none; }
+.playlist-player {
+  width: min(320px, 100%);
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.playlist-player iframe { display: block; border: 0; }
+.playlist-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(124, 92, 240, 0.35);
+  background: rgba(124, 92, 240, 0.08);
+  border-radius: 10px;
+}

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   decodeBackup,
   BackupError,
+  playlistIDFromText,
   profileNameFromFile,
   sanitizeProfileName,
   suggestedFileName,
@@ -185,4 +186,17 @@ test("YouTube IDs come from watch, short, embed, live or bare text", () => {
   assert.equal(youtubeIDFromText(`https://www.youtube.com/live/${id}`), id);
   assert.equal(youtubeIDFromText(id), id);
   assert.equal(youtubeIDFromText("https://example.com/video"), "");
+});
+
+test("playlist IDs come from list links or bare IDs", () => {
+  assert.equal(
+    playlistIDFromText("https://www.youtube.com/playlist?list=PLCiAikFFaMJouorRXDSfS2UoKV4BfKyQm"),
+    "PLCiAikFFaMJouorRXDSfS2UoKV4BfKyQm"
+  );
+  assert.equal(
+    playlistIDFromText("https://www.youtube.com/watch?v=abc&list=PL1234567890"),
+    "PL1234567890"
+  );
+  assert.equal(playlistIDFromText("PL1234567890"), "PL1234567890");
+  assert.equal(playlistIDFromText("https://example.com/playlist"), "");
 });

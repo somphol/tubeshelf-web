@@ -5,6 +5,7 @@ import {
   formatDuration,
   watchURL,
   playlistURL,
+  playlistIDFromText,
   youtubeIDFromText,
   suggestedFileName,
   profileNameFromFile,
@@ -39,6 +40,7 @@ import {
   setPlaylistTags,
   togglePlaylistChapter,
   removePlaylist,
+  addPlaylist,
 } from "./store.js";
 import {
   applyVideoFilter,
@@ -158,6 +160,8 @@ const state = {
   graphToken: 0,
   deck: null,
   course: null,
+  playlistPlayer: null,
+  playlistToken: 0,
   folder: {
     supported: folderSupported(),
     handle: null,
@@ -329,6 +333,7 @@ function loadText(text, name, { draft = false, dirty = false, restoreView = fals
   try {
     closeDeck();
     closeCourse();
+    closePlaylistImport();
     closeReconcile();
     const parsed = parseBackup(text);
     state.store = createStore(parsed, name);
@@ -1173,6 +1178,9 @@ function renderContent() {
       el("div", { class: "sub", text: contentSubtitle(items, window) })
     ),
     el("div", { class: "grow" }),
+    state.filter.kind === "playlists"
+      ? el("button", { class: "button primary", onclick: openPlaylistImport }, "Add playlist")
+      : null,
     el("button", {
       class: "button",
       title: "Present this list as slides",
@@ -1344,6 +1352,229 @@ function tagRow(tags) {
     tags.slice(0, 3).map((tag) => el("span", { class: "chip", text: tag })),
     tags.length > 3 ? el("span", { class: "chip", text: `+${tags.length - 3}` }) : null
   );
+}
+
+let youtubeApiPromise = null;
+
+function loadYouTubeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (youtubeApiPromise) return youtubeApiPromise;
+  youtubeApiPromise = new Promise((resolve, reject) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("YouTube's player did not load. Add the playlist on the Mac instead."));
+    }, 15000);
+    const previous = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof previous === "function") previous();
+      if (settled || !window.YT?.Player) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve(window.YT);
+    };
+    if (document.querySelector('script[data-youtube-api="1"]')) return;
+    const script = document.createElement("script");
+    script.src = "https://www.youtube.com/iframe_api";
+    script.dataset.youtubeApi = "1";
+    script.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      script.remove();
+      reject(new Error("YouTube's player script could not load."));
+    };
+    document.head.append(script);
+  }).catch((error) => {
+    youtubeApiPromise = null;
+    throw error;
+  });
+  return youtubeApiPromise;
+}
+
+function closePlaylistImport() {
+  state.playlistToken += 1;
+  try { state.playlistPlayer?.destroy?.(); } catch {}
+  state.playlistPlayer = null;
+  const modal = $("#playlist-modal");
+  if (modal) modal.hidden = true;
+  $("#playlist-body")?.replaceChildren();
+}
+
+async function fetchOEmbed(url) {
+  const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+  if (!response.ok) throw new Error(`YouTube answered ${response.status}`);
+  return response.json();
+}
+
+function readPlaylistIDs(holder, id, token) {
+  return loadYouTubeApi().then((YT) => new Promise((resolve, reject) => {
+    let settled = false;
+    let player = null;
+    let poll = null;
+    const finish = (value, error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      clearInterval(poll);
+      if (error) reject(error);
+      else resolve(value);
+    };
+    const timeout = setTimeout(
+      () => finish(null, new Error("YouTube did not answer in time.")),
+      20000
+    );
+    try {
+      player = new YT.Player(holder, {
+        height: "180",
+        width: "320",
+        playerVars: { listType: "playlist", list: id, origin: location.origin },
+        events: {
+          onReady: () => {
+            try {
+              player.cuePlaylist({ list: id, listType: "playlist" });
+            } catch (error) {
+              finish(null, error);
+              return;
+            }
+            let previous = -1;
+            let stable = 0;
+            poll = setInterval(() => {
+              if (token !== state.playlistToken) {
+                finish(null, new Error("cancelled"));
+                return;
+              }
+              let ids = [];
+              try { ids = player.getPlaylist() || []; } catch {}
+              if (!ids.length) return;
+              if (ids.length === previous) stable += 1;
+              else {
+                previous = ids.length;
+                stable = 0;
+              }
+              if (stable >= 2) finish({ player, ids });
+            }, 400);
+          },
+          onError: (event) => finish(null, new Error(`YouTube could not read this playlist (${event.data}).`)),
+        },
+      });
+      state.playlistPlayer = player;
+    } catch (error) {
+      finish(null, error);
+    }
+  }));
+}
+
+function openPlaylistImport() {
+  if (!state.store) return;
+  closePlaylistImport();
+  const body = $("#playlist-body");
+  const input = el("input", {
+    type: "url",
+    placeholder: "https://www.youtube.com/playlist?list=…",
+  });
+  const status = el("div", { class: "tag-hint" });
+  const playerSlot = el("div", { class: "playlist-player-slot" });
+  const fetchButton = el("button", { class: "button primary", onclick: () => start() }, "Fetch playlist");
+
+  body.append(
+    el("div", { class: "field" },
+      el("label", { text: "Playlist link" }),
+      el("div", { class: "tag-entry" }, input, fetchButton)
+    ),
+    el("div", { class: "tag-hint" },
+      "Reads the public chapter list with YouTube's player. No API key, no proxy; nothing is added until you confirm."
+    ),
+    status,
+    playerSlot
+  );
+  $("#playlist-modal").hidden = false;
+  input.focus();
+
+  async function start() {
+    const id = playlistIDFromText(input.value);
+    if (!id) {
+      status.textContent = "Paste a playlist link with a list=… ID.";
+      return;
+    }
+    const token = ++state.playlistToken;
+    fetchButton.disabled = true;
+    status.textContent = "Reading playlist…";
+    playerSlot.replaceChildren();
+    const holder = el("div", { class: "playlist-player" });
+    playerSlot.append(holder);
+    try {
+      const { ids } = await readPlaylistIDs(holder, id, token);
+      if (token !== state.playlistToken) return;
+      try { state.playlistPlayer?.destroy?.(); } catch {}
+      state.playlistPlayer = null;
+      playerSlot.replaceChildren();
+      const unique = [...new Set(ids.filter(Boolean))];
+      if (!unique.length) throw new Error("That playlist has no readable chapters.");
+      status.textContent = `Loading ${unique.length} chapters…`;
+      const meta = await fetchOEmbed(`https://www.youtube.com/playlist?list=${id}`).catch(() => null);
+      if (token !== state.playlistToken) return;
+      const items = new Array(unique.length);
+      let cursor = 0;
+      async function worker() {
+        while (cursor < unique.length) {
+          const index = cursor;
+          cursor += 1;
+          const data = await fetchOEmbed(watchURL(unique[index])).catch(() => null);
+          if (token !== state.playlistToken) return;
+          items[index] = {
+            videoID: unique[index],
+            title: data?.title || `Chapter ${index + 1}`,
+            channel: data?.author_name || meta?.author_name || "",
+            durationSeconds: null,
+          };
+          status.textContent = `Loading chapters… ${items.filter(Boolean).length} / ${unique.length}`;
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(4, unique.length) }, worker));
+      if (token !== state.playlistToken) return;
+      status.textContent = "";
+      const title = meta?.title || "Playlist";
+      const channel = meta?.author_name || "";
+      const result = el("div", { class: "playlist-result" },
+        el("div", { class: "field-label", text: "Found" }),
+        el("strong", { text: title }),
+        el("div", { class: "tag-hint", text: `${channel || "Playlist"} · ${items.length} chapters` }),
+        el("div", { class: "drive-actions" },
+          el("button", {
+            class: "button primary",
+            onclick: () => {
+              const record = {
+                id,
+                title,
+                channel,
+                items,
+                watchedItemIDs: [],
+                tags: [],
+                addedAt: new Date().toISOString(),
+                fetchedAt: new Date().toISOString(),
+                isTruncated: unique.length >= 200,
+              };
+              const added = addPlaylist(state.store, record);
+              closePlaylistImport();
+              state.filter = { kind: "playlists" };
+              state.page = 0;
+              changed();
+              openCourse(id);
+              toast(added ? `Added ${items.length} chapters` : "Already in the catalog");
+            },
+          }, "Add to catalog"),
+          el("button", { class: "button", onclick: closePlaylistImport }, "Cancel")
+        )
+      );
+      body.append(result);
+    } catch (error) {
+      if (token !== state.playlistToken) return;
+      status.textContent = error.message || "Could not read that playlist.";
+      fetchButton.disabled = false;
+    }
+  }
 }
 
 function courseThumb(playlist) {
@@ -2511,6 +2742,10 @@ function closeModal(selector) {
 
 function closeAll() {
   hideContextMenu();
+  if (!$("#playlist-modal").hidden) {
+    closePlaylistImport();
+    return true;
+  }
   if (!$("#reconcile-modal").hidden) {
     closeReconcile();
     return true;
@@ -3569,6 +3804,7 @@ $("#file").addEventListener("change", (event) => {
   event.target.value = "";
 });
 
+$("#playlist-close").addEventListener("click", closePlaylistImport);
 $("#reconcile-close").addEventListener("click", closeReconcile);
 $("#reconcile-keep").addEventListener("click", closeReconcile);
 $("#reconcile-merge").addEventListener("click", () => {
@@ -3591,10 +3827,11 @@ $("#editor-close").addEventListener("click", () => closeModal("#editor-modal"));
 $("#add-close").addEventListener("click", () => closeModal("#add-modal"));
 $("#merge-close").addEventListener("click", () => closeModal("#merge-modal"));
 
-for (const selector of ["#editor-modal", "#add-modal", "#merge-modal", "#drive-modal", "#reconcile-modal"]) {
+for (const selector of ["#editor-modal", "#add-modal", "#merge-modal", "#drive-modal", "#reconcile-modal", "#playlist-modal"]) {
   $(selector).addEventListener("click", (event) => {
     if (event.target !== $(selector)) return;
     if (selector === "#reconcile-modal") closeReconcile();
+    else if (selector === "#playlist-modal") closePlaylistImport();
     else $(selector).hidden = true;
   });
 }
@@ -3719,6 +3956,7 @@ function showLanding() {
   state.base = null;
   state.baseText = null;
   closeCourse();
+  closePlaylistImport();
   closeReconcile();
   state.filter = { kind: "all" };
   state.query = "";

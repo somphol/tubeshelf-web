@@ -65,6 +65,14 @@ npm run test:e2e:search
 It types two characters into the title search and two into the sidebar filter,
 asserting the active element and value survive each re-render.
 
+For playlist import (fake YouTube player and oEmbed):
+
+```bash
+npm run test:e2e:playlist
+```
+
+It opens **Add playlist**, enumerates two fake chapters, and adds the course.
+
 For courses:
 
 ```bash

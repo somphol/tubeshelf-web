@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self' https://accounts.google.com https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://i.ytimg.com data:; connect-src https://www.youtube.com https://www.youtube-nocookie.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://content.googleapis.com; frame-src https://accounts.google.com https://docs.google.com https://content.googleapis.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+        content="default-src 'none'; script-src 'self' https://accounts.google.com https://apis.google.com https://www.gstatic.com https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://i.ytimg.com data:; connect-src https://www.youtube.com https://www.youtube-nocookie.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://content.googleapis.com; frame-src https://accounts.google.com https://docs.google.com https://content.googleapis.com https://www.youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>TubeShelf — editable</title>
   <meta name="theme-color" content="#0f1013">
@@ -18,7 +18,7 @@
       <span class="logo" aria-hidden="true"></span>
       <span>TubeShelf</span>
       <span class="badge">editable</span>
-      <span class="version" id="version">v1.5.1</span>
+      <span class="version" id="version">v1.6.0</span>
     </div>
     <div class="file-meta" id="file-meta"></div>
     <div class="topbar-actions">
@@ -71,6 +71,16 @@
 
   <div id="deck" class="deck" hidden aria-label="Slide deck"></div>
   <div id="course" class="course-sheet" hidden aria-label="Course"></div>
+
+  <div id="playlist-modal" class="modal" hidden>
+    <div class="modal-panel playlist-panel" role="dialog" aria-modal="true" aria-label="Add playlist">
+      <div class="modal-head">
+        <h2>Add a playlist</h2>
+        <button class="icon-button" id="playlist-close" title="Close (esc)">✕</button>
+      </div>
+      <div id="playlist-body" class="modal-body"></div>
+    </div>
+  </div>
   <div id="drop" class="drop-overlay" hidden><div>Drop the backup to edit it</div></div>
   <div id="toast" class="toast" hidden></div>
   <div id="context-menu" class="context-menu" hidden></div>

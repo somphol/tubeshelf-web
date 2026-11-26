@@ -27,6 +27,8 @@ Implemented and manually verified on 2026-11-15:
   its categories, offers **Show existing card**, and updates categories in place.
 - Playlist Catalog: courses in the grid and course sheet, chapter ticks, course
   tags, present on-shelf chapters, remove course; store mutations are undoable.
+- Add playlist by URL uses YouTube's IFrame API to enumerate chapter IDs and
+  oEmbed for titles/channels; no API key or proxy.
 - Sidebar sections fold independently and remember; the whole bar hides with
   **☰**/⌘\, **Pin** stops pointer-leave auto-hide, and the left edge reveals it.
 - Three-way merge when opening a backup over local edits: one-sided changes are
@@ -46,7 +48,7 @@ Implemented and manually verified on 2026-11-15:
 - Existing-category chips and type-ahead in the editor/add sheet; learned
   keyword profiles from the person's own filing and channel affinity.
 - A new video with no category requires confirmation before it becomes Unsorted.
-- 74 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
+- 75 unit tests; manual E2E notes in [tests/E2E.md](tests/E2E.md).
 
 Not implemented: live OAuth verification (no credentials in the repo), course
 editing, bulk selection, in-place file save, redo UI, AI tagging.
@@ -54,7 +56,7 @@ editing, bulk selection, in-place file save, redo UI, AI tagging.
 ## Commands
 
 ```bash
-npm test                           # 74 unit tests (dev-only puppeteer dependency)
+npm test                           # 75 unit tests (dev-only puppeteer dependency)
 python3 -m http.server 8770        # ES modules need http://
 open http://localhost:8770/
 npm run test:e2e                   # fake Google OAuth + Drive, server must be running
@@ -62,6 +64,7 @@ npm run test:e2e:folder            # no-OAuth local Drive folder save/open/autos
 npm run test:e2e:clipboard         # auto-fill from the clipboard + oEmbed stub
 npm run test:e2e:duplicate         # existing card + in-place category update
 npm run test:e2e:course            # catalog, ticks, tags, present, remove
+npm run test:e2e:playlist          # playlist import with a fake YouTube player
 npm run test:e2e:sidebar           # fold, hide, pin, auto-hide, mobile strip
 npm run test:e2e:merge             # conflicts, undo, base persistence, 390 px
 npm run test:e2e:deck              # presentation flow at 1240 px and 390 px
@@ -221,10 +224,14 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   video deck stays video-only. The course sheet's Present action passes the
   on-shelf chapter videos to `openDeck`. Chapter ticks and course tags use
   `togglePlaylistChapter`/`setPlaylistTags`; removal uses `removePlaylist`.
-- **Adding a playlist by URL is Mac-only.** YouTube playlist pages do not send
-  CORS headers and the RSS feed has none, so the browser cannot fetch chapters.
-  Do not add a proxy or a third-party service; existing courses in a backup are
-  fully editable, and the Mac remains the place to add/refresh playlists.
+- **Playlist import uses YouTube's IFrame API, not a proxy.** The player is cued
+  with `listType: playlist` and `getPlaylist()` supplies the IDs; the playlist and
+  each chapter's title/channel come from oEmbed. No API key, no proxy, no
+  third-party service. CSP must allow `script-src https://www.youtube.com` and
+  `frame-src https://www.youtube.com https://www.youtube-nocookie.com`. The API
+  exposes at most the first batch (currently 200), oEmbed has no duration, and
+  embed-disabled chapters fall back to `Chapter N`. No refresh; remove and
+  re-add. Do not silently switch to a proxy.
 - **The merge resolver is a queue, not a form.** Flatten each conflict group into
   one diff per field (or one presence diff), show only the current diff, and move
   to the next after a choice. Keep `Back` for the last resolved diff, bulk
@@ -270,8 +277,9 @@ Flow: `parseBackup → createStore → render → mutate → scheduleDraft/expor
   HTTP 404 plus a decodable 120×90 grey image, so `coverImage` advances on
   `naturalWidth <= 120`, then on `error`. Same rule as the Mac app.
 - **Security.** All file-derived strings render with `textContent`; no
-  `innerHTML`. CSP allows only self scripts, inline styles (progress widths),
-  `i.ytimg.com` images and YouTube oEmbed. Do not add remote fonts or analytics.
+  `innerHTML`. CSP allows only self scripts plus YouTube's IFrame API,
+  inline styles (progress widths), `i.ytimg.com` images, YouTube oEmbed and the
+  player iframe. Do not add remote fonts or analytics.
 - **No personal data in the repo.** The demo is public YouTube links only. Never
   commit a real backup, thumbnail cache, token or Drive file ID.
 

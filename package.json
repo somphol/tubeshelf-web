@@ -14,10 +14,11 @@
     "test:e2e:sidebar": "node tests/sidebar-e2e.js",
     "test:e2e:duplicate": "node tests/add-existing-e2e.js",
     "test:e2e:search": "node tests/search-e2e.js",
-    "test:e2e:course": "node tests/course-e2e.js"
+    "test:e2e:course": "node tests/course-e2e.js",
+    "test:e2e:playlist": "node tests/playlist-import-e2e.js"
   },
   "devDependencies": {
     "puppeteer-core": "^24.0.0"
   },
-  "version": "1.5.1"
+  "version": "1.6.0"
 }

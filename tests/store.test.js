@@ -25,6 +25,7 @@ import {
   setPlaylistTags,
   togglePlaylistChapter,
   removePlaylist,
+  addPlaylist,
 } from "../src/store.js";
 
 const raw = {
@@ -198,8 +199,20 @@ test("playlist chapters and categories are editable", () => {
   assert.deepEqual(playlistByID(shelf, id).watchedItemIDs, []);
   setPlaylistTags(shelf, id, ["Education", "Math"]);
   assert.deepEqual(playlistByID(shelf, id).tags, ["Education", "Math"]);
+  assert.equal(addPlaylist(shelf, {
+    id: "PLNEW",
+    title: "New course",
+    channel: "Channel",
+    tags: [],
+    items: [],
+    watchedItemIDs: [],
+    addedAt: "2026-11-05T10:00:00Z",
+    fetchedAt: "2026-11-05T10:00:00Z",
+  }), true);
+  assert.equal(addPlaylist(shelf, { id: "PLNEW" }), false);
+  assert.equal(shelf.playlists.length, 2);
   assert.equal(removePlaylist(shelf, id), true);
-  assert.equal(shelf.playlists.length, 0);
-  assert.equal(undo(shelf), true);
   assert.equal(shelf.playlists.length, 1);
+  assert.equal(undo(shelf), true);
+  assert.equal(shelf.playlists.length, 2);
 });

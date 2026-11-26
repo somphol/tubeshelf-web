@@ -142,6 +142,15 @@ export function togglePlaylistChapter(store, id, videoID) {
   return true;
 }
 
+export function addPlaylist(store, playlist) {
+  if (!playlist?.id || store.playlists.some((item) => item.id === playlist.id)) return false;
+  remember(store);
+  store.playlists.push(playlist);
+  store.hasPlaylistCatalog = true;
+  touch(store);
+  return true;
+}
+
 export function removePlaylist(store, id) {
   const index = store.playlists.findIndex((playlist) => playlist.id === id);
   if (index === -1) return false;

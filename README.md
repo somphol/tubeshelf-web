@@ -47,10 +47,12 @@ start editing.
   silently filed as Unsorted.
 - Category actions: pin/unpin, rename, merge into another category, delete.
 - Pin channels alongside categories.
-- **Playlist Catalog:** courses live beside videos. Open a course to see its
-  ordered chapters, tick progress, edit course categories, open a chapter in the
-  editor, present the on-shelf chapters as a video deck, or remove the course
-  without touching shelf videos. Course tags appear in Categories too.
+- **Playlist Catalog:** courses live beside videos. **Add playlist** reads a
+  public playlist's chapter IDs with YouTube's own player (no API key, no proxy)
+  and fills titles/channels via oEmbed. Open a course to see ordered chapters,
+  tick progress, edit course categories, open a chapter in the editor, present
+  the on-shelf chapters as a video deck, or remove the course without touching
+  shelf videos. Course tags appear in Categories too.
 - **Sidebar controls:** LIBRARY, PINNED, CATEGORIES and CHANNELS fold
   independently and remember it. **☰** (or **⌘\**) hides the bar; **Pin** keeps
   it open, while unpinned it auto-hides when the pointer leaves and returns from
@@ -91,10 +93,12 @@ start editing.
 
 ## What is not here yet
 
-- Adding a new playlist by URL: the Mac fetches the playlist page; browsers
-  cannot read it (CORS), so this stays Mac-only. A backup's existing courses are
-  fully editable. Course cards open the course sheet, not the video deck; the
-  sheet's Present action plays the on-shelf chapters as videos.
+- Playlist import depends on YouTube's player: it exposes at most the first
+  batch (currently 200 chapters), oEmbed has no duration, and an embed-disabled
+  chapter falls back to `Chapter N` until you edit it. There is no automatic
+  refresh of an existing course; remove and re-add it. Adding a missing chapter
+  to the shelf is still done through **Add video**. Course cards open the course
+  sheet, not the video deck; the sheet's Present action plays on-shelf chapters.
 - Live OAuth verification: the client ships without credentials; each user creates
   one. The transport is unit-tested, the real round-trip is not.
 - In-place file saving; export downloads a new backup.
@@ -108,11 +112,12 @@ start editing.
 
 ## Privacy
 
-Without Drive, the app makes exactly two network requests: YouTube oEmbed for a
-pasted link, and thumbnails from `i.ytimg.com`. With Drive connected it also talks
-to `accounts.google.com`, `oauth2.googleapis.com` and `www.googleapis.com`, only
-for the folder you choose. No analytics, no fonts. IndexedDB holds the local copy
-and snapshots; clearing site data removes them.
+Without Drive, the app talks to YouTube only: thumbnails from `i.ytimg.com`,
+oEmbed for a pasted video or playlist, and — when you press **Add playlist** —
+YouTube's IFrame player to read the public chapter IDs. With Drive connected it
+also talks to `accounts.google.com`, `oauth2.googleapis.com` and
+`www.googleapis.com`, only for the folder you choose. No analytics, no fonts.
+IndexedDB holds the local copy and snapshots; clearing site data removes them.
 
 ## Repository
 
@@ -120,7 +125,7 @@ and snapshots; clearing site data removes them.
   app's schema; preserve unknown fields).
 - Handoff: [AGENTS.md](AGENTS.md) — architecture, decisions, gaps, Drive plan.
 - Plan: [PLAN.md](PLAN.md).
-- Tests: `npm test` (74 tests); browser proof: `npm run test:e2e` (fake Google
+- Tests: `npm test` (75 tests); browser proof: `npm run test:e2e` (fake Google
   OAuth + Drive, no credentials), `npm run test:e2e:folder` (no-OAuth folder),
   `npm run test:e2e:clipboard` (clipboard autofill), `npm run test:e2e:duplicate`
   (existing card + category update), `npm run test:e2e:course` (catalog, ticks,

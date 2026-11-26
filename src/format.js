@@ -178,6 +178,14 @@ export function watchURL(videoID) {
 }
 
 /** Extract a YouTube ID from a watch/shorts/embed/live URL or a bare ID. */
+export function playlistIDFromText(text = "") {
+  const raw = String(text || "").trim();
+  const match = raw.match(/[?&]list=([A-Za-z0-9_-]{10,})/);
+  if (match) return match[1];
+  if (/^[A-Za-z0-9_-]{12,}$/.test(raw)) return raw;
+  return "";
+}
+
 export function youtubeIDFromText(text = "") {
   const raw = String(text || "").trim();
   if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
