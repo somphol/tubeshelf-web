@@ -37,8 +37,9 @@ Implemented and manually verified on 2026-11-15:
   base is stored with the draft.
 - Slide deck: click a card or **Present** from the header; arrow keys, Home/End,
   wheel and filmstrip; tags filter, Edit/Play actions, Esc returns. Left-click is
-  a slide; right-click opens Show slide / Edit categories / YouTube. Video slides
-  only.
+  a slide; right-click opens Show slide / Edit categories / YouTube. The channel
+  under the title is a button that closes the deck and applies the sidebar's
+  `{ kind: "channel" }` filter (Enter/Space work). Video slides only.
 - IndexedDB local copy with automatic restore; timestamped export download.
 - Google Drive: OAuth (Picker/`drive.file` or full `drive`), folder listing,
   open-latest, manual timestamped save, hourly change-only autosave, retention 24.

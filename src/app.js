@@ -1004,6 +1004,14 @@ function channelRow(entry, pinned) {
   );
 }
 
+function showChannel(name) {
+  if (!name) return;
+  closeDeck();
+  state.filter = { kind: "channel", value: name };
+  state.page = 0;
+  render();
+}
+
 function filterTitle() {
   if (state.filter.kind === "tag") return state.filter.value;
   if (state.filter.kind === "channel") return state.filter.value;
@@ -1908,7 +1916,13 @@ function renderDeck() {
     el("div", { class: "deck-kicker", text: "SLIDE" }),
     el("div", { class: "deck-title", text: video.title }),
     el("div", { class: "deck-meta" },
-      el("span", { text: video.channel || "Unknown channel" }),
+      video.channel
+        ? el("button", {
+            class: "deck-channel",
+            title: `Show ${video.channel} in the shelf`,
+            onclick: () => showChannel(video.channel),
+          }, video.channel)
+        : el("span", { text: "Unknown channel" }),
       video.durationSeconds ? el("span", { text: "·" }) : null,
       video.durationSeconds ? el("span", { text: formatDuration(video.durationSeconds) }) : null,
       video.watchStatus === "done" ? el("span", { text: "· Watched" }) : null,

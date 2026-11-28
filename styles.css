@@ -345,6 +345,12 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
 .deck-kicker { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; }
 .deck-title { font-size: 24px; font-weight: 650; line-height: 1.25; margin: 8px 0 10px; }
 .deck-meta { color: rgba(255,255,255,0.65); font-size: 11.5px; display: flex; flex-wrap: wrap; gap: 6px; }
+.deck-channel {
+  background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline; text-decoration-color: rgba(255,255,255,0.3); text-underline-offset: 2px;
+}
+.deck-channel:hover, .deck-channel:focus-visible { color: #fff; text-decoration-color: currentColor; }
+.deck-channel:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 .deck-saved { color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 6px; }
 .deck-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 12px 0; }
 .deck-tags button {

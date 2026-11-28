@@ -104,6 +104,61 @@ try {
   await wait(200);
   assert.equal(await deckOpen(), false, "Escape closes the deck");
 
+  const stateFilter = () => page.evaluate(() => window.__tubeshelfTest.state.filter);
+  const resetShelf = async () => {
+    await page.evaluate(() => {
+      [...document.querySelectorAll(".side-list button")]
+        .find((node) => node.querySelector(".label")?.textContent === "All videos")
+        .click();
+    });
+    await wait(250);
+  };
+  const openDeckAtChannelSlide = async () => {
+    const button = await presentButton();
+    await button.click();
+    await wait(300);
+    for (let i = 0; i < 3; i += 1) await page.keyboard.press("ArrowRight");
+    await wait(250);
+  };
+
+  await openDeckAtChannelSlide();
+  assert.equal(
+    await page.$eval(".deck-channel", (node) => node.textContent),
+    "3Blue1Brown",
+    "slide shows the channel as a control"
+  );
+  await page.click(".deck-channel");
+  await wait(300);
+  assert.equal(await deckOpen(), false, "clicking the channel leaves the slide view");
+  assert.deepEqual(
+    await stateFilter(),
+    { kind: "channel", value: "3Blue1Brown" },
+    "clicking the channel filters the shelf by that channel"
+  );
+  assert.equal(
+    await page.$eval(".content-head h2", (node) => node.textContent),
+    "3Blue1Brown",
+    "the shelf heading names the channel"
+  );
+  assert.equal(await page.$$eval(".card", (nodes) => nodes.length), 3, "only that channel's videos are listed");
+
+  await resetShelf();
+  await openDeckAtChannelSlide();
+  await page.focus(".deck-channel");
+  await page.keyboard.press("Enter");
+  await wait(300);
+  assert.equal(await deckOpen(), false, "Enter on the channel filters the shelf");
+  assert.deepEqual(await stateFilter(), { kind: "channel", value: "3Blue1Brown" }, "Enter filters by the channel");
+
+  await resetShelf();
+  await openDeckAtChannelSlide();
+  await page.focus(".deck-channel");
+  await page.keyboard.press("Space");
+  await wait(300);
+  assert.equal(await deckOpen(), false, "Space on the channel filters the shelf");
+  assert.deepEqual(await stateFilter(), { kind: "channel", value: "3Blue1Brown" }, "Space filters by the channel");
+  await resetShelf();
+
   const cardPresent = await page.$$eval(".card", (cards) => {
     const third = cards[2];
     const button = [...third.querySelectorAll("button")].find((node) => node.textContent === "Present");
